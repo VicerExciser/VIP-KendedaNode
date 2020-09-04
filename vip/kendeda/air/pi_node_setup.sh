@@ -56,7 +56,8 @@ python3.6 -c "import os, sys; dir = os.getcwd() if os.getcwd() not in sys.path e
 # python3.7 -m pip install --user 'numpy<1.17,>=1.15' --force-reinstall
 
 ## Check if air_node.py is set to run at boot; if not, append launch command to ~/.bashrc
-CMD="python3.6 air/air_node.py"
+FILEPATH="$(pwd)/air_node.py"
+CMD="python3.6 $FILEPATH"
 if grep -Fxq "$CMD" ~/.bashrc
 then
         echo "Launch code already exists in .bashrc"
@@ -64,4 +65,4 @@ else
         echo -e "\n$CMD" >> ~/.bashrc
         echo "air_node.py set to launch at boot."
 fi
-echo -e "\n[ DONE ] node_setup has finished configuring the environment.\nLaunch the project code with 'python3.6 /home/pi/air/air_node.py'\n"
+echo -e "\n[ DONE ] node_setup has finished configuring the environment.\nLaunch the project code with '$CMD'\n"
