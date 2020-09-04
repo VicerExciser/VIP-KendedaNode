@@ -1,6 +1,9 @@
-from time import sleep
+import time
 import opc      ## Pypi package name:  py-opc
 from opc.exceptions import FirmwareVersionError
+
+OFF_STATE = 0x0
+ON_STATE  = 0x1
 
 """ Wiring configuration for SPI via GPIO:
 ------------------------------------------------------------------------
@@ -22,50 +25,123 @@ class OPC_N2():
     parameter to True. Else, if `use_usb` is False, connect via GPIO pins.
     All communications use the SPI protocol.
     """
-    def __init__(self, use_usb=False):
+    def __init__(self, use_usb=False, usb_port="/dev/ttyACM0"):
         if use_usb:
             from usbiss.spi import SPI
-            self.spi = SPI("/dev/ttyACM0")
+            self.spi = SPI(usb_port)
         else:
             import spidev
             self.spi = spidev.SpiDev()      ## Open a SPI connection on CE0 (Pin 24)
             self.spi.open(0, 0)
 
-        sleep(1)
+        time.sleep(1)
 
         ## Set the SPI mode and clock speed
         self.spi.mode = 1
         self.spi.max_speed_hz = 500000
-
-        self.opcn2 = None
+        self._state = OFF_STATE
+        self._prev_pm = None
+        self._last_read_time = 0
+        self._opcn2 = None
         spi_err_cnt = 0
-        while self.opcn2 is None and spi_err_cnt < 5:
+        while self._opcn2 is None and spi_err_cnt < 5:
             try:
-                self.opcn2 = opc.OPCN2(self.spi)
+                self._opcn2 = opc.OPCN2(self.spi)
             except FirmwareVersionError as fve:
                 spi_err_cnt += 1
                 print("[OPC_N2] FirmwareVersionError #{} caught, check power supply ...".format(spi_err_cnt))
                 print("\t{0}: {1}".format(type(fve).__name__, fve))
-                sleep(0.5)
-        sleep(1)
-        if self.opcn2:
-            print("[OPC_N2] Optical Particle Counter initialized ({}) after {} attempts ...".format("USB" if use_usb else "GPIO", spi_err_cnt))
+                time.sleep(0.5)
+            except IndexError as ie:
+                spi_err_cnt += 1
+                print("[OPC_N2] py-opc incurred an IndexError, ignoring ...")
+                print("\t{0}: {1}".format(type(ie).__name__, ie))
+                time.sleep(0.5)
+        time.sleep(1)
+        if self._opcn2:
+            print("[OPC_N2] Optical Particle Counter initialized ({}) after {} attempts ...".format("USB" if use_usb else "GPIO", spi_err_cnt+1))
         else:
-            # print("\n[OPC_N2] ERROR: INIT FAILED (SPI bus error!)\n")
-            # import sys
-            # sys.exit(1)
-            raise ValueError("\n[OPC_N2] ERROR: INIT FAILED AFTER {} ATTEMPTS (SPI bus error!)\n".format(spi_err_cnt))
+            raise ValueError("\n[OPC_N2] ERROR: INIT FAILED AFTER {} ATTEMPTS (SPI bus error!)\n".format(spi_err_cnt+1))
 
+    
 
     def on(self):
-        self.opcn2.on()
-        sleep(3)
+        if self.state == OFF_STATE:
+            self._opcn2.on()
+            self._state = ON_STATE
+            time.sleep(3)    ## Give it some time to warm up
 
     def off(self):
-        self.opcn2.off()
+        if self.state == ON_STATE:
+            self._opcn2.off()
+            self._state = OFF_STATE
 
     def pm(self):
-        return self.opcn2.pm()
+        """ Returns a dict of the format {'PM1': x, 'PM10': y, 'PM2.5': z} """
+        self.on()    ## Ensure device is on before attempting a read operation
+        pm = self._opcn2.pm()
+        pm_err_cnt = 0
+        while not any(pm.values()):
+            if pm_err_cnt > 4:
+                break
+            pm = self._opcn2.pm()
+            pm_err_cnt += 1
+        self._prev_pm = pm
+        self._last_read_time = time.time()
+        return pm 
 
     def histogram(self):
-        return self.opcn2.histogram()
+        """
+        Returns a dictionary with the following entries:
+            {
+                'Temperature': None,
+                'Pressure': None,
+                'Bin 0': 0,
+                'Bin 1': 0,
+                'Bin 2': 0,
+                ...
+                'Bin 15': 0,
+                'SFR': 3.700,
+                'Bin1MToF': 0,
+                'Bin3MToF': 0,
+                'Bin5MToF': 0,
+                'Bin7MToF': 0,
+                'PM1': 0.0,
+                'PM2.5': 0.0,
+                'PM10': 0.0,
+                'Sampling Period': 2.345,
+                'Checksum': 0
+            }
+        """
+        self.on()    ## Ensure device is on before attempting a read operation
+        hist = self._opcn2.histogram()
+        self._prev_pm = { 'PM1':hist['PM1'], 'PM10':hist['PM10'], 'PM2.5':hist['PM2.5'] }
+        self._last_read_time = time.time()
+        return hist
+
+
+    @property
+    def state(self):
+        return self._state
+
+    @property
+    def prev_pm(self):
+        if self._prev_pm is None or (time.time() - self._last_read_time) > 2:
+            return self.pm()
+        return self._prev_pm
+
+    @property
+    def PM1(self):
+        return round(self.prev_pm['PM1'], 4)
+    
+    @property
+    def PM25(self):
+        return round(self.prev_pm['PM2.5'], 4)
+
+    @property
+    def PM10(self):
+        return round(self.prev_pm['PM10'], 4)
+
+
+    def __del__(self):
+        self.off()
