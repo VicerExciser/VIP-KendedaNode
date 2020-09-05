@@ -41,7 +41,8 @@ class K33():
     to something like `/dev/ttyUSB0`. Else, if connecting via GPIO pins, `port` will
     likely be something like `/dev/serial0`. All communications use the UART protocol.
     
-    Note: `/dev/serial0` == `/dev/ttyS0` == `/dev/ttyAMA0`
+    Note: `/dev/serial0` == `/dev/ttyS0` == `/dev/ttyAMA0`  (see: https://www.raspberrypi.org/documentation/configuration/uart.md)
+     ^ This is true for RPi 3B+ & 4  (see: https://raspberrypi.stackexchange.com/questions/69697/what-is-dev-ttyama0)
 
     K33's RX_D pin  <-->  Pi's TxD (pin 8)  /  PYNQ-Z1's TxD (Digital IO pin 1)
 	K33's TX_D pin  <-->  Pi's RxD (pin 10) /  PYNQ-Z1's RxD (Digital IO pin 0)

@@ -63,7 +63,6 @@ class OPC_N2():
         else:
             raise ValueError("\n[OPC_N2] ERROR: INIT FAILED AFTER {} ATTEMPTS (SPI bus error!)\n".format(spi_err_cnt+1))
 
-    
 
     def on(self):
         if self.state == OFF_STATE:
