@@ -1,8 +1,6 @@
 import sys
-# from serial.tools.list_ports import comports
 import glob
 import os
-# from serial.tools import list_ports_common
 import re
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -185,11 +183,13 @@ def comports(include_links=False):
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-def display_com_ports():
-	sys.stderr.write('\n--- Available ports:\n')
+def get_com_ports(display_ports=True):
+	if display_ports:
+		sys.stderr.write('\n--- Available ports:\n')
 	ports = dict()
 	for n, (port, desc, hwid) in enumerate(sorted(comports()), 1):
-		sys.stderr.write('--- {:2}: {:20} {!r}\n'.format(n, port, desc))
+		if display_ports:
+			sys.stderr.write('--- {:2}: {:20} {!r}\n'.format(n, port, desc))
 		ports[port] = desc 
 	return ports 
 
@@ -197,8 +197,7 @@ def display_com_ports():
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 if __name__ == "__main__":
-	ports_dict = display_com_ports()
-	# for k,v in ports_dict.items():
+	ports_dict = get_com_ports()
 	for port in ports_dict.keys():
 		desc = ports_dict[port]
 		if 'USB-ISS' in desc:

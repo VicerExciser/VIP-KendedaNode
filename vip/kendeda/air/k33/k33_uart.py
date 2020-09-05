@@ -40,6 +40,8 @@ class K33():
     For driving the K33-ELG using the provided USB cable, set the `port` parameter 
     to something like `/dev/ttyUSB0`. Else, if connecting via GPIO pins, `port` will
     likely be something like `/dev/serial0`. All communications use the UART protocol.
+
+    TODO: Add support in the future for I2C
     
     Note: `/dev/serial0` == `/dev/ttyS0` == `/dev/ttyAMA0`  (see: https://www.raspberrypi.org/documentation/configuration/uart.md)
      ^ This is true for RPi 3B+ & 4  (see: https://raspberrypi.stackexchange.com/questions/69697/what-is-dev-ttyama0)
@@ -118,69 +120,28 @@ class K33():
 		self.ser.close()
 		time.sleep(0.5)
 		self.ser.open()
-
-	"""
-	def _read_uart(self, cmd):
-		self._reset_uart()
-		self.ser.write(cmd)
-		time.sleep(0.5)
-		resp = self.ser.read(7)
-		if len(resp) < 5:
-			print("FAILED:  resp = '{}'".format(resp))
-			return 0.00
-		# high = ord(resp[3].decode())
-		# low = ord(resp[4].decode())
-		# retval = (high * 256) + low
-		high = resp[3]
-		low = resp[4]
-		retval = (high << 8) + low
-		return retval
-	"""
 	
 	
 	def _read_uart(self, cmd):
 		self._reset_uart()
 		self.flush()
-		'''
-		error_occurred = True
-		while error_occurred:
-			try:
-				# self.ser.flushInput()
-				self.flush()
-			except termios.error as t_e:
-				self.stats[_ERR] += 1
-				if self.stats[_ERR] > MAX_ERR_CNT:
-					print("{}\n[ERROR] termios exceptions caused routine to fail, terminating now.\n".format(t_e))
-					self.show_stats()
-					sys.exit(1)
-				time.sleep(0.2)
-				# continue
-				# return -1
-				break
-			else:
-				error_occurred = False
-		'''
+
 		## Issue command to initiate reading a measured value from RAM
 		self.ser.write(cmd)
-		time.sleep(0.125)  #0.5)  #1)
+		time.sleep(0.125)
 
-		error_occurred = True
-		while error_occurred:
-			try:
-				## Request 7 bytes (CO2/RH/Temp value extracted from bytes 4 & 5)
-				resp = self.ser.read(7)
-			except serial.SerialException as s_e:
-				self.stats[_FAIL] += 1
-				self.loop_cnt = 0
-				if self.stats[_FAIL] > MAX_FAIL_CNT:
-					print("{}\n[FAILURE] serial.read() repeatedly failed to communicate with device, terminating now.\n".format(s_e))
-					self.show_stats()
-					sys.exit(1)
-				time.sleep(0.2)
-				# continue
-				return -1
-			else:
-				error_occurred = False
+		try:
+			## Request 7 bytes (CO2/RH/Temp value extracted from bytes 4 & 5)
+			resp = self.ser.read(7)
+		except serial.SerialException as s_e:
+			self.stats[_FAIL] += 1
+			self.loop_cnt = 0
+			if self.stats[_FAIL] > MAX_FAIL_CNT:
+				print("{}\n[FAILURE] serial.read() repeatedly failed to communicate with device, terminating now.\n".format(s_e))
+				self.show_stats()
+				sys.exit(1)
+			time.sleep(0.2)
+			return -1
 
 		ret_val = 0
 		bytes_recvd = len(resp)

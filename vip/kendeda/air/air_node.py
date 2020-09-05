@@ -14,20 +14,24 @@ try:
 	from util.util import *
 	import alphasense.isb as isb
 	from opcn2 import opcn2
+	from k33 import k33_uart as k33
+	from util import comports
+	from mq7 import mq 
 	# import backend.dbutil as influx
 	# import backend.influx_cloud as influx
 except ImportError:
 	print("[air_node] ImportError caught")
-	sys.path.append(os.path.join(os.environ['HOME'], 'air'))
-	# sys.path.append(os.getcwd())
-	# sys.path.append(os.path.join(os.environ['HOME'], 'alphasense'))
-	# sys.path.append(os.path.join(os.environ['HOME'], 'bme680'))
-	# sys.path.append(os.path.join(os.environ['HOME'], ''))
+	# sys.path.append(os.path.join(os.environ['HOME'], 'air'))
+	sys.path.append(os.getcwd())
 	from util.util import *
 	import alphasense.isb as isb
 	from opcn2 import opcn2
+	from k33 import k33_uart as k33
+	from util import comports
+	from mq7 import mq 
 	# import backend.dbutil as influx
 	# import backend.influx_cloud as influx
+	
 
 #------------------------------------------------------------------------------
 ## Global singleton interface for writing data to the InfluxDB backend
@@ -497,10 +501,74 @@ def Full_Test_OPC_GPIO():
 
 #------------------------------------------------------------------------------
 
+def main():
+	k33_usb_port = None 
+	opc_usb_port = None 
+	ports_dict = comports.get_com_ports(display_ports=False)
+	for port in ports_dict.keys():
+		desc = ports_dict[port]
+		if 'USB-ISS' in desc:
+			opc_usb_port = port
+			print("\nUsing port '{}' for connecting the OPC-N2 sensor  ('{}')".format(port, desc))
+		elif 'FT232R USB UART' in desc:
+			k33_usb_port = port 
+			print("\nUsing port '{}' for connecting the K33-ELG sensor  ('{}')".format(port, desc))
+
+	try:
+		## Instantiate K33-ELG sensor:
+		co2_sensor = k33.K33(port=k33_usb_port) if k33_usb_port is not None else k33.K33()
+		## Instantiate OPC-N2 sensor:
+		opc_sensor = opcn2.OPC_N2(use_usb=True, usb_port=opc_usb_port) if opc_usb_port is not None else opcn2.OPC_N2()
+
+		## Create two ADS1115 ADC (16-bit) instances or an ADS1015 ADC (12-bit) instances
+		adc0 = None
+		adc1 = None
+		if ADC_PREC == 12:
+			adc0 = ads1015.ADS1015(i2c, gain=ADC_GAIN, address=ADC_I2C_ADDR0)
+			adc1 = ads1015.ADS1015(i2c, gain=ADC_GAIN, address=ADC_I2C_ADDR1)
+		elif ADC_PREC == 16:
+			adc0 = ads1115.ADS1115(i2c, gain=ADC_GAIN, address=ADC_I2C_ADDR0)
+			adc1 = ads1115.ADS1115(i2c, gain=ADC_GAIN, address=ADC_I2C_ADDR1)
+		if adc0 is None or adc1 is None:
+			print("[ERROR] Invalid ADC precision specified (only 12 or 16 supported): ADC_PREC=" + ADC_PREC)
+			sys.exit(2)
+
+		## Instantiate CO-B4 sensor:
+		co_serial = '162030904'  ## Found on sticker on side of sensor
+		co_op1_pin = 0 	## WE: Orange wire from Molex connector --> channel A0 of first ADC breakout
+		co_op2_pin = 1 	## AE: Yellow wire from Molex connector --> channel A1 of first ADC breakout
+		co_op1 = analog_in.AnalogIn(adc0, co_op1_pin)
+		co_op2 = analog_in.AnalogIn(adc0, co_op2_pin)
+		co_sensor = isb.CO(co_op1, co_op2, serial=co_serial)
+
+		## Instantiate NO2-B43F sensor:
+		no2_serial = '202931852'  ## Found on sticker on side of sensor
+		no2_op1_pin = 2  ## WE: Orange wire from Molex connector --> channel A2 of first ADC breakout
+		no2_op2_pin = 3  ## AE: Yellow wire from Molex connector --> channel A3 of first ADC breakout
+		no2_op1 = analog_in.AnalogIn(adc0, no2_op1_pin)
+		no2_op2 = analog_in.AnalogIn(adc0, no2_op2_pin)
+		no2_sensor = isb.NO2(no2_op1, no2_op2, serial=no2_serial)
+
+		## Instantiate OX-B431 sensor:
+		ox_serial = '204930754'  ## Found on sticker on side of sensor
+		ox_op1_pin = 0  ## WE: Orange wire from Molex connector --> channel A0 of second ADC breakout
+		ox_op2_pin = 1 	## AE: Yellow wire from Molex connector --> channel A1 of second ADC breakout
+		ox_op1 = analog_in.AnalogIn(adc1, ox_op1_pin)
+		ox_op2 = analog_in.AnalogIn(adc1, ox_op2_pin)
+		ox_sensor = isb.OX(ox_op1, ox_op2, serial=ox_serial)
+
+	except ValueError:
+		die(msg="Critial exception occurred in 'main' (ValueError)")
+
+#------------------------------------------------------------------------------
+
 def die(msg="DEAD", exit=True):
 	if db is not None:
 		db.kill()
-	print("\n[air_node::die] {} @ {}".format(msg, get_datetime()))
+	death_text = "\n[air_node::die] {} @ {}".format(msg, get_datetime())
+	print(death_text)
+	with open(ERROR_LOGFILE, 'a') as f:
+		f.write(death_text)
 	if exit:
 		sys.exit(2)
 

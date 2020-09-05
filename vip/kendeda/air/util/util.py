@@ -9,17 +9,16 @@ from statistics import mean
 from datetime import datetime
 try:
 	from util.weather import OpenWeatherMap, network_connected
-	#from air.bme680.bme import BME680
-	#from air.sgp30.sgp import SGP30 
 	from bme680.bme import BME680
 	from sgp30.sgp import SGP30 
 	import backend.influx_cloud as influx
 except ImportError:
-	print("[util] Appending '{}' to PYTHONPATH".format(os.path.join(os.environ['HOME'], 'air')))
-	sys.path.append(os.path.join(os.environ['HOME'], 'air'))
+	# print("[util] Appending '{}' to PYTHONPATH".format(os.path.join(os.environ['HOME'], 'air')))
+	# sys.path.append(os.path.join(os.environ['HOME'], 'air'))
+	rootpath = '/'.join(os.getcwd().split('/')[:-1])
+	print("[util] Appending '{}' to PYTHONPATH".format(rootpath))
+	sys.path.append(rootpath)
 	from util.weather import OpenWeatherMap, network_connected
-	#from air.bme680.bme import BME680
-	#from air.sgp30.sgp import SGP30 
 	from bme680.bme import BME680
 	from sgp30.sgp import SGP30 
 	import backend.influx_cloud as influx
@@ -39,6 +38,8 @@ STABILIZE_HUMIDITY = True
 MEASUREMENT_INTERVAL = 5     ## Seconds
 HEADER_PRINT_INTERVAL = 120	 ## Seconds (for tests -- will print column headers once every 2 minutes)
 # MAX_RETRIES = 5
+
+ERROR_LOGFILE = os.path.join(os.environ['HOME'], "node_errors.log")
 
 ##------------------------------------------------------------------------------
 
