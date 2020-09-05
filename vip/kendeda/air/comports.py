@@ -187,13 +187,21 @@ def comports(include_links=False):
 
 def display_com_ports():
 	sys.stderr.write('\n--- Available ports:\n')
-	ports = []
+	ports = dict()
 	for n, (port, desc, hwid) in enumerate(sorted(comports()), 1):
 		sys.stderr.write('--- {:2}: {:20} {!r}\n'.format(n, port, desc))
-		ports.append(port)
+		ports[port] = desc 
+	return ports 
 
 
 # - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 if __name__ == "__main__":
-	display_com_ports()
+	ports_dict = display_com_ports()
+	# for k,v in ports_dict.items():
+	for port in ports_dict.keys():
+		desc = ports_dict[port]
+		if 'USB-ISS' in desc:
+			print("\nUse port '{}' for connecting the OPC-N2 sensor  ('{}')".format(port, desc))
+		elif 'FT232R USB UART' in desc:
+			print("\nUse port '{}' for connecting the K33-ELG sensor  ('{}')".format(port, desc))
