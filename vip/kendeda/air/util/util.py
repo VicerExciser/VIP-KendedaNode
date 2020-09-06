@@ -29,7 +29,7 @@ except ImportError:
 
 ##------------------------------------------------------------------------------
 ## AIR NODE PROGRAM CONFIGURATIONS:
-DRY_RUN = True  ## Data will only be published to InfluxDB if this is False
+DRY_RUN = False #True  ## Data will only be published to InfluxDB if this is False
 REQUIRE_INTERNET = True  ## Set to False if a connection to the backend is not required
 DISPLAY_TEST_MENU = False #True  	 ## For enabling the user to select a test to be run
 USE_TEMP_COEFFICIENT = True  ## Compensate for temperature skew to improve reading accuracies
