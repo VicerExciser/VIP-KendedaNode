@@ -1,11 +1,13 @@
 import adafruit_bme680
 import math
+from util.util import rh_to_abs_humidity 
 
-RV = 461.5  ## specific gas constant for water vapor
+# RV = 461.5  ## specific gas constant for water vapor
 
 class BME680():
-	""" Wrapper class for an Adafruit BME680 sensor breakout.
-	"""
+	""" Wrapper class for an Adafruit BME680 sensor breakout. """
+	I2C_ADDR = 0x77
+
 	def __init__(self, bus, use_i2c=True, stabilize_humidity=False):
 		""" Can use I2C or SPI to communicate with a Raspberry Pi.
 
@@ -54,19 +56,16 @@ class BME680():
 		print("[BME680] Humidity stabilized at {:4.2f}%".format(hum))
 
 	def get_temperature(self):
-		""" Returns the compensated temperature in degrees celsius.
-		"""
-		return self.bme.temperature 	## Units: °C
+		""" Returns the compensated temperature in degrees celsius. """
+		return round(self.bme.temperature, 2) 	## Units: °C
 
 	def get_pressure(self):
-		""" Returns the barometric pressure in hectoPascals.
-		"""
-		return self.bme.pressure 		## Units: hPa
+		""" Returns the barometric pressure in hectoPascals. """
+		return round(self.bme.pressure, 2) 		## Units: hPa
 
 	def get_humidity(self):
-		""" Returns the current relative humidity in RH %.
-		"""
-		return self.bme.humidity 		## Units: %
+		""" Returns the current relative humidity in RH %. """
+		return round(self.bme.humidity, 2) 		## Units: %
 
 	def get_absolute_humidity(self):
 		""" Returns the current absolute humidity (in grams
@@ -74,32 +73,28 @@ class BME680():
 		humidity, temperature, and barometric pressure.
 		Source: https://planetcalc.com/2167/
 		"""
-		rh = self.bme.humidity
-		t = self.bme.temperature
-		p = self.bme.pressure
-		eW = self._saturation_vapor_pressure(p, t)
-		e = eW * (rh / 100.0)
-		ah = ((e / (t * RV)) * 10.0) * 1000 ## * 1000 to convert kg/m3 to g/m3
-		"""
-		print('-'*40)
-		print(f"Temp: {t:5.3f} °C\nPressure: {p:6.3f} hPa\nSat. Press: {eW:5.3f} hPa")
-		print(f"RH: {rh:5.3f} %\nAH: {ah:4.3f} g/m3\n\n")
-		"""
-		return self.bme.abs_humidity 		## Units: g/m3
+		rh = self.get_humidity()
+		t = self.get_temperature()
+		p = self.get_pressure()
+		# eW = self._saturation_vapor_pressure(p, t)
+		# e = eW * (rh / 100.0)
+		# ah = ((e / (t * RV)) * 10.0) * 1000 ## * 1000 to convert kg/m3 to g/m3
+		# return self.bme.abs_humidity 		## Units: g/m3
+		return rh_to_abs_humidity(rh, t, p)
 
-	def _saturation_vapor_pressure(self, p, t):
-		""" Source: https://planetcalc.com/2161/ """
-		fp = 1.0016 + ((3.15 * 10**(-6)) * p) - (0.074 * (p**(-1)))
-		ewt = 6.112 * (math.e ** ((17.62 * t) / (243.12 + t)))
-		eW = fp * ewt
-		return eW
+	# def _saturation_vapor_pressure(self, p, t):
+	# 	""" Source: https://planetcalc.com/2161/ """
+	# 	fp = 1.0016 + ((3.15 * 10**(-6)) * p) - (0.074 * (p**(-1)))
+	# 	ewt = 6.112 * (math.e ** ((17.62 * t) / (243.12 + t)))
+	# 	eW = fp * ewt
+	# 	return eW
 	
 	def get_altitude(self):
 		""" Returns the altitude based on current pressure vs. the sea level 
 		pressure (sea_level_pressure) which must be configured ahead of time 
 		(handled here by the class constructor).
 		"""
-		return self.bme.altitude 		## Units: meters
+		return round(self.bme.altitude, 2) 		## Units: meters
 
 	def get_voc(self):
 		""" Returns the Volatile Organic Compounds concentration measurement.
@@ -107,7 +102,7 @@ class BME680():
 		The gas resistance in ohms for the sensor reading is proportional to 
 		the amount of VOC particles detected in the air.
 		"""
-		return self.bme.gas 			## Units: ohms	
+		return round(self.bme.gas, 2) 			## Units: ohms	
 
 	def update_sea_level_pressure(self, val):
 		if val > 0:

@@ -55,6 +55,8 @@ python3.6 -m pip install --user --upgrade -r requirements.txt
 python3.6 -c "import os, sys; dir = os.getcwd() if os.getcwd() not in sys.path else ''; sys.path.append(dir)"
 # python3.7 -m pip install --user 'numpy<1.17,>=1.15' --force-reinstall
 
+pip3 install -r requirements.txt
+
 ## Check if air_node.py is set to run at boot; if not, append launch command to ~/.bashrc
 FILEPATH="$(pwd)/air_node.py"
 CMD="python3.6 $FILEPATH"

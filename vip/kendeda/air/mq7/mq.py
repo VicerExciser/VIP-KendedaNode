@@ -2,22 +2,31 @@
 
 import time
 import math
-import board
-import busio
+# import board
+# import busio
 import numpy as np
-from statistics import mean
-from adafruit_ads1x15 import ads1015, analog_in
+# from statistics import mean
+# from adafruit_ads1x15 import ads1015, analog_in
+
+try:
+    from util import util 
+except ImportError:
+    import os, sys 
+    rootpath = '/'.join(os.getcwd().split('/')[:-1])
+    print("[{}] Appending '{}' to PYTHONPATH".format(__file__, rootpath))
+    sys.path.append(rootpath)
+    from util import util 
 
 ######################### Global Constants #########################
-i2c = busio.I2C(board.SCL, board.SDA)
+# i2c = busio.I2C(board.SCL, board.SDA)
 co_x1 = 10
 co_x2 = 100
 
 ######################### Helper Functions #########################
-
-def map(x, in_min=0, in_max=5, out_min=0, out_max=100):
+"""
+def map_voltage_to_percent(voltage, v_min=0, v_max=5, out_min=0, out_max=100):
     ## Map a voltage value (from 0-5V) to a corresponding CO gas concentration percentage (0-100%)
-    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
+    return (voltage - v_min) * (out_max - out_min) / (v_max - v_min) + out_min
 
 def best_fit_slope_and_intercept(xs, ys):
     ## Given 2 numpy arrays of x values & y values, respectively, will compute and return
@@ -25,6 +34,7 @@ def best_fit_slope_and_intercept(xs, ys):
     m = (float(((mean(xs)*mean(ys)) - mean(xs*ys))) / float(((mean(xs)*mean(xs)) - mean(xs*xs))))
     b = mean(ys) - m*mean(xs)
     return m, b
+"""
 
 def get_co_y(x_val):
     ## See:  https://www.teachmemicro.com/use-mq-7-carbon-monoxide-sensor/
@@ -48,8 +58,8 @@ class MQ7():
     CALIBARAION_SAMPLE_TIMES     = 50       # define how many samples you are going to take in the calibration phase
     CALIBRATION_SAMPLE_INTERVAL  = 500      # define the time interval(in milisecond) between each samples in the
                                             # cablibration phase
-    READ_SAMPLE_INTERVAL         = 50       # define the time interval(in milisecond) between each samples in
-    READ_SAMPLE_TIMES            = 5        # define how many samples you are going to take in normal operation 
+    READ_SAMPLE_INTERVAL         = 10  #50       # define the time interval(in milisecond) between each samples in
+    READ_SAMPLE_TIMES            = 2  #5        # define how many samples you are going to take in normal operation 
                                             # normal operation
 
     R2 = 2000  ## Most MQ7 boards use a 2 kilo-ohm series resistor for R2 (see schematic)
@@ -57,14 +67,18 @@ class MQ7():
     ## CO Point format: (ppm, Rs/R0)
     CO_POINT_1 = (co_x1, get_co_y(co_x1))
     CO_POINT_2 = (co_x2, get_co_y(co_x2))
-    CO_SLOPE = best_fit_slope_and_intercept(np.array([CO_POINT_1[0], CO_POINT_2[0]], dtype=np.dtype(float)), np.array([CO_POINT_1[1], CO_POINT_2[1]], dtype=np.dtype(float)))[0]
+    CO_SLOPE = util.best_fit_slope_and_intercept(np.array([CO_POINT_1[0], CO_POINT_2[0]], dtype=np.dtype(float)), 
+                    np.array([CO_POINT_1[1], CO_POINT_2[1]], dtype=np.dtype(float)))[0]
 
     
-    def __init__(self, Ro=10, analogPin=0, vdd=5.0):
+    # def __init__(self, Ro=10, analogPin=0, vdd=5.0):
+    def __init__(self, adc, Ro=10, vdd=5.0):
+        """ 'ain' parameter should be an `analog_in.AnalogIn` instance for an ADS1x15 ADC channel. """
+        self.adc = adc
         self.VDD = vdd
         self.Ro = Ro
-        self.MQ_PIN = analogPin
-        self.adc = analog_in.AnalogIn(ads1015.ADS1015(i2c, gain=(2/3), address=0x48), analogPin)
+        # self.MQ_PIN = analogPin
+        # self.adc = analog_in.AnalogIn(ads1015.ADS1015(i2c, gain=(2/3), address=0x48), analogPin)
 
         self.COCurve = [self.CO_POINT_1[1], self.CO_POINT_2[1], self.CO_SLOPE]
                 
@@ -136,7 +150,11 @@ class MQ7():
 ######################### Launcher #########################
 
 if __name__ == "__main__":
-    mq = MQ7()
+    import board
+    from adafruit_ads1x15 import ads1015, analog_in
+    analogPin = 0
+    adc = analog_in.AnalogIn(ads1015.ADS1015(board.I2C(), gain=(2/3), address=0x48), analogPin)
+    mq = MQ7(adc)
     mode = 2    ## Ignore mode 1 ...
 
     while True:

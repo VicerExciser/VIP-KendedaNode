@@ -51,7 +51,7 @@ class OPC_N2():
                 spi_err_cnt += 1
                 print("[OPC_N2] FirmwareVersionError #{} caught, check power supply ...".format(spi_err_cnt))
                 print("\t{0}: {1}".format(type(fve).__name__, fve))
-                time.sleep(0.5)
+                time.sleep(1)
             except IndexError as ie:
                 spi_err_cnt += 1
                 print("[OPC_N2] py-opc incurred an IndexError, ignoring ...")
@@ -62,7 +62,7 @@ class OPC_N2():
             print("[OPC_N2] Optical Particle Counter initialized ({}) after {} attempts ...".format("USB" if use_usb else "GPIO", spi_err_cnt+1))
         else:
             raise ValueError("\n[OPC_N2] ERROR: INIT FAILED AFTER {} ATTEMPTS (SPI bus error!)\n".format(spi_err_cnt+1))
-
+        self.on()
 
     def on(self):
         if self.state == OFF_STATE:
@@ -76,7 +76,10 @@ class OPC_N2():
             self._state = OFF_STATE
 
     def pm(self):
-        """ Returns a dict of the format {'PM1': x, 'PM10': y, 'PM2.5': z} """
+        """ 
+        Returns a dict of the format {'PM1': x, 'PM10': y, 'PM2.5': z} 
+        Particular matter density concentration units: num. of particles per cubic centimeter (#/cc).
+        """
         self.on()    ## Ensure device is on before attempting a read operation
         pm = self._opcn2.pm()
         pm_err_cnt = 0
@@ -85,6 +88,8 @@ class OPC_N2():
                 break
             pm = self._opcn2.pm()
             pm_err_cnt += 1
+        for key in pm.keys():
+            pm[key] = round(pm[key], 4)
         self._prev_pm = pm
         self._last_read_time = time.time()
         return pm 
@@ -114,7 +119,11 @@ class OPC_N2():
         """
         self.on()    ## Ensure device is on before attempting a read operation
         hist = self._opcn2.histogram()
-        self._prev_pm = { 'PM1':hist['PM1'], 'PM10':hist['PM10'], 'PM2.5':hist['PM2.5'] }
+        self._prev_pm = {   
+                        'PM1':round(hist['PM1'], 4), 
+                        'PM10':round(hist['PM10'], 4), 
+                        'PM2.5':round(hist['PM2.5'], 4)
+                        }
         self._last_read_time = time.time()
         return hist
 
@@ -129,15 +138,15 @@ class OPC_N2():
             return self.pm()
         return self._prev_pm
 
-    @property
+    # @property
     def PM1(self):
         return round(self.prev_pm['PM1'], 4)
     
-    @property
+    # @property
     def PM25(self):
         return round(self.prev_pm['PM2.5'], 4)
 
-    @property
+    # @property
     def PM10(self):
         return round(self.prev_pm['PM10'], 4)
 

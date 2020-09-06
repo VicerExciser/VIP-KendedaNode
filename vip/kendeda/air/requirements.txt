@@ -3,11 +3,13 @@ adafruit-blinka
 adafruit-circuitpython-busdevice
 adafruit-circuitpython-ads1x15
 pyusbiss
+spidev
 smbus2
-git+https://github.com/doceme/py-spidev.git
 py-opc
 adafruit-circuitpython-bme680
 influxdb
 influxdb-client
 adafruit-circuitpython-sgp30
 numpy>1.0,<1.15
+git+https://github.com/Seeed-Studio/grove.py
+git+https://github.com/doceme/py-spidev.git

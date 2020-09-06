@@ -5,6 +5,9 @@ import signal
 import termios
 from datetime import datetime as dt
 
+## TODO: Create custom Exceptions for errors, especially for NO_RESP failures 
+## so that air_node.py can remove the dead K33 from the sensor loop (battery pack likely died)
+
 #######################
 ######  GLOBALS  ######
 #######################
@@ -13,7 +16,7 @@ from datetime import datetime as dt
 LOOP_DELAY = 20
 
 ## For tracking 3 statistic classifications: I/O error count, serial read failure count, & empty response packets
-DISPLAY_STATS = True
+DISPLAY_STATS = False # True
 RESET_STATS_ON_SUCCESS = True
 REQUEST_CO2 = True
 REQUEST_RH = True
@@ -48,6 +51,8 @@ class K33():
 
     K33's RX_D pin  <-->  Pi's TxD (pin 8)  /  PYNQ-Z1's TxD (Digital IO pin 1)
 	K33's TX_D pin  <-->  Pi's RxD (pin 10) /  PYNQ-Z1's RxD (Digital IO pin 0)
+
+	Note: The jumper should be set on the K33 board
     """
 
     ## Seven byte request for reading CO2 ppm from the K33:
@@ -74,6 +79,7 @@ class K33():
 		time.sleep(1)
 
 
+	## TODO: Move to util
 	@staticmethod
 	def get_timestamp():
 		return dt.now().strftime('%m/%d/%Y,%I:%M:%S %p')

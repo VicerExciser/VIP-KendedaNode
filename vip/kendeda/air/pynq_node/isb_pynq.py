@@ -23,6 +23,14 @@ def best_fit_slope_and_intercept(xs, ys):
 
 #------------------------------------------------------------------------------
 
+"""
+Constant coefficient values specific to each ISB, values found on bags:
+	- Serial:  unique indentifier
+	- WEe:  read from the "WE Zero Electronic" column (units in mV) -- not the Total value
+	- AEe:  read from the "Aux Zero Electronic" column (units in mV) -- not the Total value
+	- Sens:  read from the "WE Sens Total" column (units in mV/ppb) -- not the Electronic value
+"""
+
 isb_serials = {
 	'162030904' :	## CO-B4
 	{
@@ -30,11 +38,24 @@ isb_serials = {
 		'AEe'  : 345,
 		'Sens' : 419
 	},
+	'162030905' :	## CO-B4
+	{
+		'WEe'  : 343,
+		'AEe'  : 349,
+		'Sens' : 422
+	},
 	'162030906' :	## CO-B4
 	{
 		'WEe'  : 343,
 		'AEe'  : 355,
 		'Sens' : 448
+	},
+
+	'204930753' :	## OX-B431
+	{
+		'WEe'  : 231,
+		'AEe'  : 234,
+		'Sens' : 321
 	},
 	'204930754' :	## OX-B431
 	{
@@ -54,11 +75,24 @@ isb_serials = {
 		'AEe'  : 234,
 		'Sens' : 308
 	},
+
 	'202931852' :	## NO2-B43F
 	{
 		'WEe'  : 219,
 		'AEe'  : 246,
 		'Sens' : 230
+	},
+	'202931849' :	## NO2-B43F
+	{
+		'WEe'  : 225,
+		'AEe'  : 232,
+		'Sens' : 216
+	},
+	'202931851' :	## NO2-B43F
+	{
+		'WEe'  : 227,
+		'AEe'  : 232,
+		'Sens' : 212
 	},
 }
 

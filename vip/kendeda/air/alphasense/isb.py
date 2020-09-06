@@ -1,5 +1,6 @@
 import numpy as np
-from util.util import *
+# from util.util import *
+from util import util
 
 #------------------------------------------------------------------------------
 
@@ -14,12 +15,13 @@ class ISB(object):
 	WeAux = WeVo - AuxVo;   // corrects for drift in Aux and We probes ie OP1 and OP2
 	ppm2 = WeAux/sens;    	// aux corrected ppm reading
 	"""
-	def __init__(self, op1, op2, we_offset, ae_offset, sensitivty):
+	def __init__(self, op1, op2, we_offset, ae_offset, sensitivty, temperature_function):
 		self.op1 = op1 	## ADC voltage input channel for Working Electrode 
 		self.op2 = op2 	## ADC voltage input channel for Auxiliary Electrode
 		self.weVo = we_offset
 		self.auxVo = ae_offset
 		self.sens = sensitivty
+		self.get_temp = temperature_function
 
 	@property
 	def we_voltage(self):
@@ -37,14 +39,19 @@ class ISB(object):
 	def ae_mv(self):
 		return float(self.aux_voltage * 1000.0)
 
-	@classmethod
-	def _get_nT(cls, xs, ys):
+	# @classmethod
+	# def _get_nT(cls, xs, ys):
+	def _get_nT(self, xs, ys):
 		y = 1.0
-		if USE_TEMP_COEFFICIENT: 	# and bme is not None:
-			x = bme.get_temperature()
-			m, b = best_fit_slope_and_intercept(xs, ys)
+		if util.USE_TEMP_COEFFICIENT and self.get_temp is not None: 	# and bme is not None:
+			x = self.get_temp()   
+			m, b = util.best_fit_slope_and_intercept(xs, ys)
 			y = float(m*x + b)
 		return y 
+
+	
+	def get_ppm(self):
+		return round(self.ppm, 4) 
 
 #------------------------------------------------------------------------------
 
@@ -62,11 +69,13 @@ class CO(ISB):
 	## Y-axis values are Temp Coefficient Factors
 	_ys = np.array(list(CO_n.values()), dtype=np.dtype(float))
 
-	def __init__(self, op1, op2, serial=None, we_offset=None, ae_offset=None, sensitivty=None):
+	def __init__(self, op1, op2, serial=None, we_offset=None, ae_offset=None, 
+									sensitivty=None, temperature_function=None):
 		super().__init__(op1, op2,
 						we_offset if we_offset is not None else CO.WE_ZERO_OFFSET,
 						ae_offset if ae_offset is not None else CO.AUX_ZERO_OFFSET,
-						sensitivty if sensitivty is not None else CO.SENSITIVITY)
+						sensitivty if sensitivty is not None else CO.SENSITIVITY,
+						temperature_function)
 		if serial is not None:
 			## For a specific sensor (identified by its serial # on label),
 			## if that ISB serial #'s constant values (i.e., offsets, sensitivity)
@@ -84,7 +93,8 @@ class CO(ISB):
 	## For nT, the temperature dependence coefficient (uses best-fit line)
 	@property
 	def nT(self):
-		self._nT = ISB._get_nT(CO._xs, CO._ys)
+		# self._nT = ISB._get_nT(CO._xs, CO._ys)
+		self._nT = self._get_nT(CO._xs, CO._ys)
 		return self._nT
 	
 	## Get the ambient Carbon Monoxide gas concentration in parts per million
@@ -120,11 +130,13 @@ class NO2(ISB):
 	## Y-axis values are Temp Coefficient Factors
 	_ys = np.array(list(NO2_n.values()), dtype=np.dtype(float))
 
-	def __init__(self, op1, op2, serial=None, we_offset=None, ae_offset=None, sensitivty=None):
+	def __init__(self, op1, op2, serial=None, we_offset=None, ae_offset=None, 
+									sensitivty=None, temperature_function=None):
 		super().__init__(op1, op2,
 						we_offset if we_offset is not None else NO2.WE_ZERO_OFFSET,
 						ae_offset if ae_offset is not None else NO2.AUX_ZERO_OFFSET,
-						sensitivty if sensitivty is not None else NO2.SENSITIVITY)
+						sensitivty if sensitivty is not None else NO2.SENSITIVITY,
+						temperature_function)
 		if serial is not None:
 			if serial in isb_serials:
 				consts = isb_serials[serial]
@@ -138,7 +150,8 @@ class NO2(ISB):
 
 	@property
 	def nT(self):
-		self._nT = ISB._get_nT(NO2._xs, NO2._ys)
+		# self._nT = ISB._get_nT(NO2._xs, NO2._ys)
+		self._nT = self._get_nT(NO2._xs, NO2._ys)
 		return self._nT
 	
 	@property
@@ -169,11 +182,13 @@ class OX(ISB):
 	## Y-axis values are Temp Coefficient Factors
 	_ys = np.array(list(OX_n.values()), dtype=np.dtype(float))
 
-	def __init__(self, op1, op2, serial=None, we_offset=None, ae_offset=None, sensitivty=None):
+	def __init__(self, op1, op2, serial=None, we_offset=None, ae_offset=None, 
+									sensitivty=None, temperature_function=None):
 		super().__init__(op1, op2,
 						we_offset if we_offset is not None else OX.WE_ZERO_OFFSET,
 						ae_offset if ae_offset is not None else OX.AUX_ZERO_OFFSET,
-						sensitivty if sensitivty is not None else OX.SENSITIVITY)
+						sensitivty if sensitivty is not None else OX.SENSITIVITY,
+						temperature_function)
 		if serial is not None:
 			if serial in isb_serials:
 				consts = isb_serials[serial]
@@ -188,7 +203,8 @@ class OX(ISB):
 
 	@property
 	def nT(self):
-		self._nT = ISB._get_nT(OX._xs, OX._ys)
+		# self._nT = ISB._get_nT(OX._xs, OX._ys)
+		self._nT = self._get_nT(OX._xs, OX._ys)
 		return self._nT
 	
 	@property
@@ -207,6 +223,87 @@ class OX(ISB):
 			# self._ox_ppm = 0
 			self._ox_ppm = abs(self._ox_ppm)
 		return self._ox_ppm
+
+#------------------------------------------------------------------------------
+
+"""
+Constant coefficient values specific to each ISB, values found on bags:
+	- Serial:  unique indentifier
+	- WEe:  read from the "WE Zero Electronic" column (units in mV) -- not the Total value
+	- AEe:  read from the "Aux Zero Electronic" column (units in mV) -- not the Total value
+	- Sens:  read from the "WE Sens Total" column (units in mV/ppb) -- not the Electronic value
+"""
+
+isb_serials = {
+	'162030904' :	## CO-B4
+	{
+		'WEe'  : 344,
+		'AEe'  : 345,
+		'Sens' : 419
+	},
+	'162030905' :	## CO-B4
+	{
+		'WEe'  : 343,
+		'AEe'  : 349,
+		'Sens' : 422
+	},
+	'162030906' :	## CO-B4
+	{
+		'WEe'  : 343,
+		'AEe'  : 355,
+		'Sens' : 448
+	},
+
+	'204930753' :	## OX-B431
+	{
+		'WEe'  : 231,
+		'AEe'  : 234,
+		'Sens' : 321
+	},
+	'204930754' :	## OX-B431
+	{
+		'WEe'  : 234,
+		'AEe'  : 230,
+		'Sens' : 306
+	},
+	'204930755' :	## OX-B431
+	{
+		'WEe'  : 228,
+		'AEe'  : 221,
+		'Sens' : 288
+	},
+	'204930756' :	## OX-B431
+	{
+		'WEe'  : 235,
+		'AEe'  : 234,
+		'Sens' : 308
+	},
+
+	'202931852' :	## NO2-B43F
+	{
+		'WEe'  : 219,
+		'AEe'  : 246,
+		'Sens' : 230
+	},
+	'202931849' :	## NO2-B43F
+	{
+		'WEe'  : 225,
+		'AEe'  : 232,
+		'Sens' : 216
+	},
+	'202931851' :	## NO2-B43F
+	{
+		'WEe'  : 227,
+		'AEe'  : 232,
+		'Sens' : 212
+	},
+}
+
+"""
+Serials w/ unknown bag label constants:
+	162030905 (CO-B4)
+	162030907 (CO-B4)
+"""
 
 #------------------------------------------------------------------------------
 

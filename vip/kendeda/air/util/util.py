@@ -2,29 +2,34 @@
 
 import os
 import sys
-import busio
-import board
+import math
+# import busio
+# import board
+from urllib import request
 import subprocess as sp
 from statistics import mean 
 from datetime import datetime
+"""  **Removed the following to avoid coupling & cyclical imports:
 try:
-	from util.weather import OpenWeatherMap, network_connected
-	from bme680.bme import BME680
-	from sgp30.sgp import SGP30 
-	import backend.influx_cloud as influx
+	# from util.weather import OpenWeatherMap, network_connected
+	# from bme680.bme import BME680
+	# from sgp30.sgp import SGP30 
+	# import backend.influx_cloud as influx
 except ImportError:
 	# print("[util] Appending '{}' to PYTHONPATH".format(os.path.join(os.environ['HOME'], 'air')))
 	# sys.path.append(os.path.join(os.environ['HOME'], 'air'))
 	rootpath = '/'.join(os.getcwd().split('/')[:-1])
-	print("[util] Appending '{}' to PYTHONPATH".format(rootpath))
+	print("[{}] Appending '{}' to PYTHONPATH".format(__file__, rootpath))
 	sys.path.append(rootpath)
-	from util.weather import OpenWeatherMap, network_connected
-	from bme680.bme import BME680
-	from sgp30.sgp import SGP30 
-	import backend.influx_cloud as influx
+	# from util.weather import OpenWeatherMap, network_connected
+	# from bme680.bme import BME680
+	# from sgp30.sgp import SGP30 
+	# import backend.influx_cloud as influx
+"""
 
 ##------------------------------------------------------------------------------
 ## AIR NODE PROGRAM CONFIGURATIONS:
+DRY_RUN = True  ## Data will only be published to InfluxDB if this is False
 REQUIRE_INTERNET = True  ## Set to False if a connection to the backend is not required
 DISPLAY_TEST_MENU = False #True  	 ## For enabling the user to select a test to be run
 USE_TEMP_COEFFICIENT = True  ## Compensate for temperature skew to improve reading accuracies
@@ -33,11 +38,16 @@ INCLUDE_VOC = True
 INCLUDE_ECO2 = True
 SHOW_DATETIME = True #False
 BME_USE_I2C = True 		## Else, will use SPI
-STABILIZE_HUMIDITY = True
+STABILIZE_HUMIDITY = True   ## Initialization option for the BME680
+INCLUDE_MQ7_CO = False
+INCLUDE_AIR_PUMP = True   ## Only True if controlling an air pump with a relay (using Grove relay breakout for testing)
 
-MEASUREMENT_INTERVAL = 5     ## Seconds
+## TODO: Create map that describes what sensors to use in air_node.py
+
+MEASUREMENT_INTERVAL  = 15  #5     ## Seconds
 HEADER_PRINT_INTERVAL = 120	 ## Seconds (for tests -- will print column headers once every 2 minutes)
 # MAX_RETRIES = 5
+AIR_PUMP_PIN = 26  ## BCM pin number of the GPIO driving the air pump's relay
 
 ERROR_LOGFILE = os.path.join(os.environ['HOME'], "node_errors.log")
 
@@ -48,7 +58,7 @@ ADC_I2C_ADDR1 = 0x49 	## ADDR pin -> VDD
 ADC_I2C_ADDR2 = 0x4A 	## ADDR pin -> SDA
 ADC_I2C_ADDR3 = 0x4B 	## ADDR pin -> SCL
 
-ADC_PREC = 16	## Either 12-bit or 16-bit precision ADS1x15 ADC breakout
+ADC_PREC = 12	## Either 12-bit or 16-bit precision ADS1x15 ADC breakout
 
 ## Choose a gain of 1 for reading voltages from 0 to 4.09V
 ## Or pick a different gain to change the range of voltages that are read:
@@ -68,6 +78,7 @@ A3 = 3
 
 ##------------------------------------------------------------------------------
 ## Global singleton interface for writing data to the InfluxDB backend
+"""
 try:
 	db = influx.DBCloud()
 except ValueError as ve:
@@ -81,12 +92,15 @@ except ValueError as ve:
 		sys.exit(2)
 	else:
 		db = None
-
+"""
 ##------------------------------------------------------------------------------
-
-owm = OpenWeatherMap()
+"""
+# owm = OpenWeatherMap()
 i2c = board.I2C() 	## Singleton I2C interface
-# i2c = busio.I2C(board.SCL, board.SDA)
+# i2c = busio.I2C(board.SCL, board.SDA, frequency=100000)
+"""
+
+"""
 bme = None
 try:
 	if BME_USE_I2C:
@@ -99,27 +113,50 @@ except ValueError:
 	bme = None 
 else:
 	bme.update_sea_level_pressure(owm.get_sea_level_pressure())
+"""
 
+"""
 sgp = None 
 try:
 	sgp = SGP30(i2c)
-	sgp.iaq_init()
-	sgp.set_iaq_baseline(0x8CC9, 0x8F12)
 	if bme is not None:
 		sgp.set_iaq_humidity(bme.get_absolute_humidity())
 except ValueError:
 	print("[util] No SGP30 sensor breakout detected")
 	INCLUDE_VOC = False
 	INCLUDE_ECO2 = False
-
+"""
 
 ##------------------------------------------------------------------------------
 ## UTILITY / HELPER FUNCTIONS:
+
+def network_connected(url="http://www.google.com"):
+	try:
+		request.urlopen(url).close()
+	except Exception as e:
+		print("[network_connected] Exception:\n{}".format(e))
+		return False
+	else:
+		return True
+
+
+def c_to_f(celsius):
+	"""
+	( X degrees Celsius * 1.8 ) + 32 = Y degrees Fahrenheit
+	"""
+	return round(((celsius * 1.8) + 32), 2)
+
+
+def map_voltage_to_percent(voltage, v_min=0, v_max=5, out_min=0, out_max=100):
+    """ Map a voltage value (from 0-5V) to a corresponding CO gas concentration percentage (0-100%). """
+    return (voltage - v_min) * (out_max - out_min) / (v_max - v_min) + out_min
+
 
 def best_fit_slope_and_intercept(xs, ys):
 	m = (float(((mean(xs)*mean(ys)) - mean(xs*ys))) / float(((mean(xs)*mean(xs)) - mean(xs*xs))))
 	b = mean(ys) - m*mean(xs)
 	return m, b
+
 
 def get_datetime():
 	dt = datetime.now()
@@ -139,6 +176,7 @@ def get_datetime():
 	dt_str = '{}/{}/{} ({}:{}:{} {})'.format(dt.month, dt.day, dt.year, hr_str, min_str, sec_str, ampm)
 	return dt_str 
 
+
 def board_temperature():
 	temp = sp.getoutput('/opt/vc/bin/vcgencmd measure_temp')
 	temp = float(temp[temp.index('=')+1:-2])
@@ -146,86 +184,27 @@ def board_temperature():
 	return temp
 
 
-##------------------------------------------------------------------------------
+def rh_to_abs_humidity(rh, temp, press):
+	""" Returns the current absolute humidity (in grams
+	per cubic meter) based on the current relative 
+	humidity, temperature, and barometric pressure.
+	Source: https://planetcalc.com/2167/
+	"""
+	RV = 461.5  	## Specific gas constant for water vapor
 
-"""
-Constant coefficient values specific to each ISB, values found on bags:
-	- Serial:  unique indentifier
-	- WEe:  read from the "WE Zero Electronic" column (units in mV) -- not the Total value
-	- AEe:  read from the "Aux Zero Electronic" column (units in mV) -- not the Total value
-	- Sens:  read from the "WE Sens Total" column (units in mV/ppb) -- not the Electronic value
-"""
+	eW = saturation_vapor_pressure(press, temp)
+	e = eW * (rh / 100.0)
+	ah = ((e / (temp * RV)) * 10.0) * 1000 ## * 1000 to convert kg/m3 to g/m3
+	return ah 		## Units: g/m3
 
-isb_serials = {
-	'162030904' :	## CO-B4
-	{
-		'WEe'  : 344,
-		'AEe'  : 345,
-		'Sens' : 419
-	},
-	'162030905' :	## CO-B4
-	{
-		'WEe'  : 343,
-		'AEe'  : 349,
-		'Sens' : 422
-	},
-	'162030906' :	## CO-B4
-	{
-		'WEe'  : 343,
-		'AEe'  : 355,
-		'Sens' : 448
-	},
 
-	'204930753' :	## OX-B431
-	{
-		'WEe'  : 231,
-		'AEe'  : 234,
-		'Sens' : 321
-	},
-	'204930754' :	## OX-B431
-	{
-		'WEe'  : 234,
-		'AEe'  : 230,
-		'Sens' : 306
-	},
-	'204930755' :	## OX-B431
-	{
-		'WEe'  : 228,
-		'AEe'  : 221,
-		'Sens' : 288
-	},
-	'204930756' :	## OX-B431
-	{
-		'WEe'  : 235,
-		'AEe'  : 234,
-		'Sens' : 308
-	},
+def saturation_vapor_pressure(p, t):
+		""" Source: https://planetcalc.com/2161/ """
+		fp = 1.0016 + ((3.15 * 10**(-6)) * p) - (0.074 * (p**(-1)))
+		ewt = 6.112 * (math.e ** ((17.62 * t) / (243.12 + t)))
+		eW = fp * ewt
+		return eW
 
-	'202931852' :	## NO2-B43F
-	{
-		'WEe'  : 219,
-		'AEe'  : 246,
-		'Sens' : 230
-	},
-	'202931849' :	## NO2-B43F
-	{
-		'WEe'  : 225,
-		'AEe'  : 232,
-		'Sens' : 216
-	},
-	'202931851' :	## NO2-B43F
-	{
-		'WEe'  : 227,
-		'AEe'  : 232,
-		'Sens' : 212
-	},
-}
-
-"""
-Serials w/ unknown bag label constants:
-	162030905 (CO-B4)
-	162030907 (CO-B4)
-"""
 
 ##------------------------------------------------------------------------------
 

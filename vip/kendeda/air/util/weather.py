@@ -1,18 +1,18 @@
 ## weather.py -- Uses OpenWeatherMap API to get climate data for a location
 import json
 from urllib import request
+try:
+	from util import util
+except ImportError:
+	import os
+	import sys
+	rootpath = '/'.join(os.getcwd().split('/')[:-1])
+	print("[{}] Appending '{}' to PYTHONPATH".format(__file__, rootpath))
+	sys.path.append(rootpath)
+	from util import util
+
 
 API_KEY = "8f8c5b575af490b72af8cababaffae28"
-
-
-def network_connected(url="http://www.google.com"):
-	try:
-		request.urlopen(url).close()
-	except Exception as e:
-		print("[network_connected] Exception:\n{}".format(e))
-		return False
-	else:
-		return True
 
 
 class OpenWeatherMap():
@@ -53,30 +53,36 @@ class OpenWeatherMap():
 		for the OpenWeatherMap API, see: https://openweathermap.org/current
 		Further reference: https://codereview.stackexchange.com/questions/131371/script-to-print-weather-report-from-openweathermap-api
 		"""
-		if network_connected():
-			req = request.urlopen(self.api_call)
-			out = req.read().decode('utf-8')
-			self.data = json.loads(out)
-			req.close()
+		req = request.urlopen(self.api_call)
+		out = req.read().decode('utf-8')
+		self.data = json.loads(out)
+		req.close()
 
 
 	def get_sea_level_pressure(self):
 		""" Returns location's sea level pressure in hPa """
-		self.fetch_data()
-		try:
-			data_dict = self.data.get("main")
-			if "sea_level" in data_dict:
-				key = "sea_level"
-			elif "grnd_level" in data_dict:
-				key = "grnd_level"
-			else:
-				key = "pressure"
-			p = float(data_dict.get(key))
-		except Exception as e:
-			print("[OpenWeatherMap.get_sea_level_pressure] Exception occurred:\n{}".format(e))
-			# return 1018.8
-			return -1
-		print("[{}] {}: {} hPa".format(key, self.city, p))
+		if util.network_connected():
+			self.fetch_data()
+			try:
+				data_dict = self.data.get("main")
+				if "sea_level" in data_dict:
+					key = "sea_level"
+				elif "grnd_level" in data_dict:
+					key = "grnd_level"
+				else:
+					key = "pressure"
+				p = float(data_dict.get(key))
+				print("[{}] {}: {} hPa".format(key, self.city, p))
+				return p
+			except Exception as e:
+				print("[OpenWeatherMap.get_sea_level_pressure] Exception occurred:\n{}".format(e))
+				# return -1
+		p = 1018.8 	## Set pressure to an average value for the Atlanta area in case of no Internet connection
+		print("[get_sea_level_pressure] {}: {} hPa".format(self.city, p))
 		return p
 
+
+	def get_relative_humidity(self):
+		## TODO
+		return 50
 	

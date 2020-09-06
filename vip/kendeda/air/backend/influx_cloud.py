@@ -10,12 +10,13 @@ import subprocess as sp
 import enum
 
 try:
-	from util.weather import network_connected
+	from util.util import network_connected
 except ImportError:
-	import sys
-	print("[influx_cloud] Appending '{}' to PYTHONPATH".format(os.path.join(os.environ['HOME'], 'air')))
-	sys.path.append(os.path.join(os.environ['HOME'], 'air'))
-	from util.weather import network_connected
+	import os, sys 
+	rootpath = '/'.join(os.getcwd().split('/')[:-1])
+	print("[{}] Appending '{}' to PYTHONPATH".format(__file__, rootpath))
+	sys.path.append(rootpath)
+	from util.util import network_connected
 
 """
 Configure credentials
@@ -233,18 +234,22 @@ class DBCloud():
 		"""
 		self.client.close()
 
+
+
 class MeasurementTypes(enum.Enum):
-	t   = 'temp'
-	h   = 'humid'
-	v   = 'voc'
-	eco2 = 'eco2'
-	co  = 'co_ppm'
-	co2 = 'co2_ppm'
-	no2 = 'no2_ppm'
-	ox  = 'ox_ppm'
-	p1  = 'pm1'
-	p25 = 'pm25'
-	p10 = 'pm10'
+	temp   = 'Temp_celcius'
+	rh   = 'Humid_percent'
+	tvoc   = 'TVOC_ppb'
+	eco2 = 'eCO2_ppm'
+	co  = 'CO_ppm'
+	co2 = 'CO2_ppm'
+	no2 = 'NO2_ppm'
+	ox  = 'OX_ppm'
+	pm1  = 'PM1'
+	pm25 = 'PM2.5'
+	pm10 = 'PM10'
+
+
 
 if __name__ == '__main__':
 	db = DBCloud(influx_cloud_url, influx_cloud_token)

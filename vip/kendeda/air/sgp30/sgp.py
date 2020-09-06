@@ -2,6 +2,7 @@ import adafruit_sgp30
 
 class SGP30():
         """Wrapper class for an Adafruit SGP30 sensor"""
+        I2C_ADDR = 0x58
 
         def __init__(self, bus):
                 """ Uses I2C to communicate with the Raspberry Pi
@@ -9,13 +10,16 @@ class SGP30():
                 In the demo bus = busio.I2c(board.SCL, board.SDA, frequency = 100000)
                 using import board.
 
-                NOTE: If no stored baseline is avaliable after initializing the baseline algorithm, 
-                the sensor has to run for 12 hours until the baseline can be stored. This will endure optimal 
-                behavior for preeceding startups. Reading our the baseline prior should be avoided 
+                NOTE: If no stored baseline is avaliable after initializing the baseline algorithm,
+                the sensor has to run for 12 hours until the baseline can be stored. This will endure optimal
+                behavior for preeceding startups. Reading our the baseline prior should be avoided
                 unless a valid baseline is restored first.
 
                 """
                 self.sgp = adafruit_sgp30.Adafruit_SGP30(bus)
+                self.humidity_set = False
+                self.iaq_init()
+                self.set_iaq_baseline(0x8CC9, 0x8F12)
 
         def get_tvoc(self):
                 """ Returns the Total Volatile Organic Compound in parts per billion"""
@@ -61,4 +65,5 @@ class SGP30():
                 Can be set up for better accuracy through another humidity sensor
                 """
                 self.sgp.set_iaq_humidity(gramsPM3)
+                self.humidity_set = True
 
