@@ -5,6 +5,13 @@ PRINTS_ON=false #true	## Set to false before deployment
 ERROR_LOGFILE="${HOME}/node_errors.log"
 MAX_FAILS=6
 
+PYV_MINOR=$(python3 -V | cut -d '.' -f 2)
+if [ $PYV_MINOR -ge 6 ]; then
+	PY_CMD="python3"
+else
+	PY_CMD="python3.6"
+fi
+
 die() {
 	ts="[ $(TZ='America/New_York' date) ]\t"
 	err_str="[check_ps.sh]  air_node.py NOT RUNNING -- SYSTEM REBOOT IMMINENT\n"
@@ -21,7 +28,7 @@ die() {
 failcnt=0
 
 while true; do
-	ps -C python3 >/dev/null
+	ps -C $PY_CMD >/dev/null
 
 	if [ "$?" = 1 ]; then
 		((failcnt++))
