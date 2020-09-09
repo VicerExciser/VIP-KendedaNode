@@ -102,8 +102,18 @@ die() {
 #################################################################################################
 # main() {
 
+PYV_MINOR=$(python3 -V | cut -d '.' -f 2)
+if [ $PYV_MINOR -ge 6 ]; then
+	PY_CMD="python3"
+else
+	PY_CMD="python3.6"
+fi
+
 clear
 cd $PRJDIR
+if [ -f "opcn2/opc_off.py" ]; then
+	sudo $PY_CMD opcn2/opc_off.py
+fi
 sleep 5s
 check_network
 while [ "$?" -eq "$FAIL" ]; do
@@ -141,12 +151,7 @@ fi
 sleep 1s
 echo -e "\n====  AirNodePi now launching $NODE_SCRIPT  ====\n"
 
-PYV_MINOR=$(python3 -V | cut -d '.' -f 2)
-if [ $PYV_MINOR -ge 6 ]; then
-	PY_CMD="python3"
-else
-	PY_CMD="python3.6"
-fi
+
 sudo $PY_CMD $NODE_SCRIPT
 
 # }
