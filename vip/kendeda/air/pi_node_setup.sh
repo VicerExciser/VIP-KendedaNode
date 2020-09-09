@@ -58,8 +58,10 @@ python3.6 -c "import os, sys; dir = os.getcwd() if os.getcwd() not in sys.path e
 pip3 install -r requirements.txt
 
 ## Check if air_node.py is set to run at boot; if not, append launch command to ~/.bashrc
-FILEPATH="$(pwd)/air_node.py"
-CMD="python3.6 $FILEPATH"
+# FILEPATH="$(pwd)/air_node.py"
+# CMD="python3.6 $FILEPATH"
+FILEPATH="$(pwd)/start_node.sh"
+CMD="$FILEPATH"
 if grep -Fxq "$CMD" ~/.bashrc
 then
         echo "Launch code already exists in .bashrc"

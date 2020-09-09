@@ -139,6 +139,13 @@ if [ -f "$WATCHER_SCRIPT" ]; then
 fi
 sleep 1s
 echo -e "\n====  AirNodePi now launching $NODE_SCRIPT  ====\n"
-python3 $NODE_SCRIPT
+
+PYV_MINOR=$(python3 -V | cut -d '.' -f 2)
+if [ $PYV_MINOR -ge 6 ]; then
+	PY_CMD="python3"
+else
+	PY_CMD="python3.6"
+fi
+$PY_CMD $NODE_SCRIPT
 
 # }
