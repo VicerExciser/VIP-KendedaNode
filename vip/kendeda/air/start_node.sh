@@ -102,6 +102,7 @@ die() {
 #################################################################################################
 # main() {
 
+clear
 cd $PRJDIR
 sleep 5s
 check_network
@@ -146,6 +147,6 @@ if [ $PYV_MINOR -ge 6 ]; then
 else
 	PY_CMD="python3.6"
 fi
-$PY_CMD $NODE_SCRIPT
+sudo $PY_CMD $NODE_SCRIPT
 
 # }
