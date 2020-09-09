@@ -46,5 +46,5 @@ while true; do
 		die
 	fi
 
-	sleep 5s
+	sleep 10s
 done
