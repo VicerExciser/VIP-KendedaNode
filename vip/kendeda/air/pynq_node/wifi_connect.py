@@ -1,15 +1,18 @@
 import os
-from time import sleep
+import sys
+import time
 from pynq.lib import Wifi
 
-port = Wifi()
-ssid = input("Type in the SSID:")
-pwd = input("Type in the password:")
+time.sleep(2)
+try:
+	port = Wifi()
+except ValueError:
+	print(f"\n[{__file__}]  No compatible USB WiFi device found. Interface 'wlan0' will be unavailable.")
+	sys.exit(2)
+ssid = input('\nPlease enter your WiFi network name:  ')
+pwd = input('Please enter your WiFi network password:  ')
 port.connect(ssid, pwd)
 
 ## Pause a few seconds while connection is established, then test connection
-sleep(3)
-os.system("ping -I wlan0 www.github.com -c 5")
-
-## To reset WiFi connection:
-# port.reset()
+time.sleep(3)
+os.system('ping -I wlan0 www.github.com -c 3')
