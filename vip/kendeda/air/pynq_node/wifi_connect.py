@@ -11,7 +11,7 @@ except ValueError:
 	sys.exit(2)
 ssid = input('\nPlease enter your WiFi network name:  ')
 pwd = input('Please enter your WiFi network password:  ')
-port.connect(ssid, pwd)
+port.connect(ssid, pwd, auto=True)
 
 ## Pause a few seconds while connection is established, then test connection
 time.sleep(3)
