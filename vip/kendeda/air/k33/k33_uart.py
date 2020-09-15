@@ -12,6 +12,8 @@ from datetime import datetime as dt
 ######  GLOBALS  ######
 #######################
 
+MAX_CO2_PPM = ((2 ** 15) - 1)
+
 ## Seconds in between successful measurement readings
 LOOP_DELAY = 20
 
@@ -106,6 +108,8 @@ class K33():
 				print("[read_co2]  Bad co2 value:  {}".format(co2))
 		"""
 		co2 = self._read_uart(self.READ_CO2_CMD)
+		if int(co2) == MAX_CO2_PPM:
+			print("\n[K33::read_co2]  WARNING: Suspected battery failure, check that the K33 unit is receiving power!\n")
 		self._prev_co2 = co2
 		return co2
 
