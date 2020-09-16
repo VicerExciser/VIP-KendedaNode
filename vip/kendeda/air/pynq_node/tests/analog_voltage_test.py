@@ -5,8 +5,9 @@ from pynq.lib.arduino import Arduino_Analog, ARDUINO_GROVE_A1
 
 
 base = BaseOverlay('base.bit')
-operating_voltage = 5.0  #3.3
-xadc_max_raw = float((2**16) - 1)
+operating_voltage = 3.3
+# xadc_max_raw = float((2**16) - 1)
+xadc_max_raw = float((1<<16)-1)
 pin = 0
 pin_group = ARDUINO_GROVE_A1
 assert pin in pin_group
@@ -39,12 +40,17 @@ def raw_to_volt(raw):
 
 while True:
 	try:
-		# voltage = analog_input.read()[pin_index] 	## Voltage will be in range [0.0, 3.3]
 		raw = analog_input.read_raw()[pin_index] 	## Since the XADC is 16-bit, 
 													## raw value will be in range [0, 65535]
-		voltage = '{0:.4f}'.format(_reg2float(raw))
-		alt_voltage = raw_to_volt(raw)
-		print(f'\t{voltage} V\t(alt: {alt_voltage} V)\t[raw: {raw}]')
+		#voltage = '{0:.4f}'.format(_reg2float(raw))
+		#alt_voltage = raw_to_volt(raw)
+
+		alt_voltage = '{0:.4f}'.format(raw * (3.3 / float((1<<16)-1)))
+		#print(f'\t{voltage} V\t[raw: {raw}]')
+
+		voltage = '{0:.4f}'.format(analog_input.read()[pin_index]) 	## Voltage will be in range [0.0, 3.3]
+		print(f'\t{voltage} V\t|\t(alt: {alt_voltage} V)\t|\t[raw: {raw}]')
+		
 		time.sleep(0.5)
 	except KeyboardInterrupt:
 		break
