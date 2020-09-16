@@ -1,0 +1,6 @@
+pyusbiss
+spidev
+py-opc
+influxdb-client
+numpy>1.0,<1.15
+
