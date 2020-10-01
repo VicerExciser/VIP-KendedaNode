@@ -234,7 +234,7 @@ int close() {
 
 
 void read_pm_data(struct PMData* data) {
-    /* Adapted from https://github.com/dhhagan/opcn2/blob/master/src/opcn2.cpp */
+    /* Adapted from https://github.com/dhhagan/opc/blob/master/src/opc.cpp */
 	// struct PMData data;
     const char* pm_command_byte = {0x32};
     int pm_length = 12;
