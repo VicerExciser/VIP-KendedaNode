@@ -10,6 +10,7 @@ while ! git pull; do
 done
 LIBPATH="/home/xilinx/pynq/lib/arduino/"
 cp -v -r opc/ $LIBPATH
+cp opc/opc.py $LIBPATH
 #CWD=$(pwd)
 cd "${LIBPATH}opc/Debug/"
 pwd

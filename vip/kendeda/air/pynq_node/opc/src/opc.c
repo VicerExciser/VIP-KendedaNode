@@ -1,14 +1,12 @@
 /*
-Alpha.c
+opc.c
 
 A MicroBlaze application for the Alphasense OPC-N2 on the PYNQ-Z1 SoC.
 
  */
 
-// include libraries
-// #include <stdio.h>
+// Include libraries
 #include <stdint.h>
-// #include "xparameters.h"
 #include "circular_buffer.h"
 #include "timer.h" 	// For delay_ms() and delay_us()
 #include "spi.h"	// Import the Xilinx SPI library
@@ -39,9 +37,9 @@ spi spi_device;
 
 struct PMData {
     /*
-    float pm1;
-    float pm25;
-    float pm10;
+        float pm1;
+        float pm25;
+        float pm10;
     */
     char pm1[4];
     char pm25[4];
@@ -49,22 +47,22 @@ struct PMData {
 };
 
 struct HistogramData {
-    /*double*/ uint16_t bin0;
-    /*double*/ uint16_t bin1;
-    /*double*/ uint16_t bin2;
-    /*double*/ uint16_t bin3;
-    /*double*/ uint16_t bin4;
-    /*double*/ uint16_t bin5;
-    /*double*/ uint16_t bin6;
-    /*double*/ uint16_t bin7;
-    /*double*/ uint16_t bin8;
-    /*double*/ uint16_t bin9;
-    /*double*/ uint16_t bin10;
-    /*double*/ uint16_t bin11;
-    /*double*/ uint16_t bin12;
-    /*double*/ uint16_t bin13;
-    /*double*/ uint16_t bin14;
-    /*double*/ uint16_t bin15;
+    uint16_t bin0;
+    uint16_t bin1;
+    uint16_t bin2;
+    uint16_t bin3;
+    uint16_t bin4;
+    uint16_t bin5;
+    uint16_t bin6;
+    uint16_t bin7;
+    uint16_t bin8;
+    uint16_t bin9;
+    uint16_t bin10;
+    uint16_t bin11;
+    uint16_t bin12;
+    uint16_t bin13;
+    uint16_t bin14;
+    uint16_t bin15;
 
     float bin1MToF; // Mass Time-of-Flight
     float bin3MToF; 
@@ -76,14 +74,6 @@ struct HistogramData {
     float period;   // Sampling Period
     unsigned int checksum;  // Checksum
 
-    /*
-    float pm1;
-    float pm25;
-    float pm10;
-    */
-    // char pm1[4];
-    // char pm25[4];
-    // char pm10[4];
     struct PMData pm;
 };
 
@@ -147,26 +137,14 @@ int close() {
 int on()
 {
     int i = 0;
-	int state = OFF;                                            // OPC status (0 - off; 1 - on) assumed off
-        
+	int state = OFF;                                            // OPC status (0 - off; 1 - on) assumed off        
     const char write_data[PACKET_LENGTH] = {0x03, 0x00};	// "ON" command bytes
 	const char expected[PACKET_LENGTH] = {243, 3}; 			// Return bytes (0xF3, 0x03)
     char read_data[PACKET_LENGTH] = {0, 0}; 				// Initialize array for return bytes
 
-    
     // Command OPC on while it's off (three attempts)
     while (state == OFF) {
         i++;
-		/*
-        if (i==1) {
-            Serial.println("Sending 'ON' command to OPC...(1st attempt)");
-        } else if (i==2) {
-            Serial.println("Sending 'ON' command to OPC...(2nd attempt)");
-        } else if (i==3) {
-            Serial.println("Sending 'ON' command to OPC...(3rd attempt)");
-        }
-		*/
-
         // SPI Transaction:
 		// (1) Write 0x03 to bus --> should populate read_data[0] response byte with 0xF3
 		spi_transfer(spi_device, &write_data[0], &read_data[0], 1);
@@ -191,8 +169,6 @@ int on()
             } else if (i==3) {   // close SPI bus if third attempt was unsucessful
                 // Serial.println("Commands unsucessful... closing SPI bus.");
                 close();
-                // while(1);
-				// exit(1);
             }
          }
      }
@@ -235,7 +211,6 @@ int off() {
 
 void read_pm_data(struct PMData* data) {
     /* Adapted from https://github.com/dhhagan/opcn2/blob/master/src/opcn2.cpp */
-	// struct PMData data;
     const char pm_command_byte = 0x32;
     int pm_length = 12;
 	char vals[pm_length];
@@ -257,11 +232,6 @@ void read_pm_data(struct PMData* data) {
     spi_transfer(spi_device, cmd_bytes, vals, pm_length);
 #endif  // PM_BYTEWISE
 
-    /*
-    data.pm1  = fourBytes2float(vals[0], vals[1], vals[2],  vals[3]);
-    data.pm25 = fourBytes2float(vals[4], vals[5], vals[6],  vals[7]);
-    data.pm10 = fourBytes2float(vals[8], vals[9], vals[10], vals[11]);
-    */
     for (int i = 0; i < pm_length; i++) {
         if (i < 4) {
             data->pm1[i] = vals[i];
@@ -271,7 +241,6 @@ void read_pm_data(struct PMData* data) {
             data->pm10[i%4] = vals[i];
         }
     }
-    // return data;
 }
 
 void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
@@ -279,7 +248,6 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
         if convert_to_conc == 1:  bin units are in concentration of particles [particles/ml] per size bin [microns]
         if convert_to_conc == 0:  bin units are in particle count per second [#/s] per size bin [microns]
     */
-    // struct HistogramData data;
     const char hist_command_byte = 0x30;
     int hist_length = 62;
     char vals[hist_length];
@@ -307,19 +275,13 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
     spi_transfer(spi_device, cmd_bytes, vals, hist_length);
 #endif  // HIST_BYTEWISE
 
-    // data.period = fourBytes2float(vals[44], vals[45], vals[46], vals[47]);
-    // data.sfr    = fourBytes2float(vals[36], vals[37], vals[38], vals[39]);
     data->period = fourBytes2float(vals[44], vals[45], vals[46], vals[47]);
     data->sfr    = fourBytes2float(vals[36], vals[37], vals[38], vals[39]);
-    /*
-    data->period = {vals[44], vals[45], vals[46], vals[47]};
-    data->sfr    = {vals[36], vals[37], vals[38], vals[39]};
-    */
 
     // If convert_to_conc = True, convert from raw data to concentration
     // double conv = convert_to_conc ? (data.sfr * data.period) : 1.0;              ** <-- Handle this conversion in the Python implementation **
 
-    // Calculate all of the bin values
+    // Populate all of the bin values
     // data.bin0  = (double) twoBytes2int(vals[0],  vals[1]};
     // data.bin1  = (double) twoBytes2int(vals[2],  vals[3])  / conv;
     // data.bin2  = (double) twoBytes2int(vals[4],  vals[5])  / conv;
@@ -353,10 +315,6 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
     data->bin14 = twoBytes2int(vals[28], vals[29]);
     data->bin15 = twoBytes2int(vals[30], vals[31]);
 
-    // data.bin1MToF = (int)(vals[32]) / 3.0;
-    // data.bin3MToF = (int)(vals[33]) / 3.0;
-    // data.bin5MToF = (int)(vals[34]) / 3.0;
-    // data.bin7MToF = (int)(vals[35]) / 3.0;
     data->bin1MToF = (int)(vals[32]) / 3.0;
     data->bin3MToF = (int)(vals[33]) / 3.0;
     data->bin5MToF = (int)(vals[34]) / 3.0;
@@ -365,15 +323,9 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
     // This holds either temperature or pressure
     // If temp, this is temp in C x 10
     // If pressure, this is pressure in Pa
-    // data.temp_pressure = fourBytes2int(vals[40], vals[41], vals[42], vals[43]);
     data->temp_pressure = fourBytes2int(vals[40], vals[41], vals[42], vals[43]);
 
-    // data.checksum = twoBytes2int(vals[48], vals[49]);
     data->checksum = twoBytes2int(vals[48], vals[49]);
-
-    // data.pm1  = fourBytes2float(vals[50], vals[51], vals[52], vals[53]);
-    // data.pm25 = fourBytes2float(vals[54], vals[55], vals[56], vals[57]);
-    // data.pm10 = fourBytes2float(vals[58], vals[59], vals[60], vals[61]);
     
     for (int i = 50; i < hist_length; i++) {
         int pm_index = (i % 50) % 4;
@@ -385,8 +337,6 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
             data->pm.pm10[pm_index] = vals[i];          // data->pm.pm10 = {vals[58], vals[59], vals[60], vals[61]};
         }
     }
-
-    // return data;
 }
 
 
@@ -447,24 +397,6 @@ int main(void) {
 
 			case READ_PM:
 				read_pm_data(&pm_data);
-			/*
-				uint8_t pm1_byte, pm25_byte, pm10_byte;
-				for (int i = 0; i < 4; i++) {
-					pm1_byte  = pm_data.pm1[i];
-					pm25_byte = pm_data.pm25[i];
-					pm10_byte = pm_data.pm10[i];
-
-					if (i < 2) {
-						pm1_lo.b[i] = pm1_byte;
-						pm25_lo.b[i] = pm25_byte;  //pm_data.pm25[i];
-						pm10_lo.b[i] = pm10_byte;   //pm_data.pm10[i];
-					} else {
-						pm1_hi.b[i] = pm1_byte;
-						pm25_hi.b[i] = pm25_byte;    //pm_data.pm25[i];
-						pm10_hi.b[i] = pm10_byte;    //pm_data.pm10[i];
-					}
-				}
-			*/
 				pack_byte_pairs(&pm_data, &pm1_lo, &pm1_hi, &pm25_lo, &pm25_hi, &pm10_lo, &pm10_hi);
 
 				// Write PM data to 6 16-bit mailbox slots
