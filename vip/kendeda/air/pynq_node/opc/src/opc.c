@@ -262,10 +262,15 @@ void read_pm_data(struct PMData* data) {
     data.pm25 = fourBytes2float(vals[4], vals[5], vals[6],  vals[7]);
     data.pm10 = fourBytes2float(vals[8], vals[9], vals[10], vals[11]);
     */
-    data->pm1  = {vals[0], vals[1], vals[2],  vals[3]};
-    data->pm25 = {vals[4], vals[5], vals[6],  vals[7]};
-    data->pm10 = {vals[8], vals[9], vals[10], vals[11]};
-
+    for (int i = 0; i < pm_length; i++) {
+        if (i < 4) {
+            data->pm1[i] = vals[i];
+        } else if (i < 8) {
+            data->pm25[i%4] = vals[i];
+        } else {
+            data->pm10[i%4] = vals[i];
+        }
+    }
     // return data;
 }
 
@@ -369,9 +374,16 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
     // data.pm1  = fourBytes2float(vals[50], vals[51], vals[52], vals[53]);
     // data.pm25 = fourBytes2float(vals[54], vals[55], vals[56], vals[57]);
     // data.pm10 = fourBytes2float(vals[58], vals[59], vals[60], vals[61]);
-    data->pm.pm1  = {vals[50], vals[51], vals[52], vals[53]};
-    data->pm.pm25 = {vals[54], vals[55], vals[56], vals[57]};
-    data->pm.pm10 = {vals[58], vals[59], vals[60], vals[61]};
+    
+    for (int i = 50; i < hist_length; i++) {
+        if (i < 54) {
+            data->pm1[i] = vals[i];             // data->pm.pm1  = {vals[50], vals[51], vals[52], vals[53]};
+        } else if (i < 58) {
+            data->pm25[i%4] = vals[i];          // data->pm.pm25 = {vals[54], vals[55], vals[56], vals[57]};
+        } else {
+            data->pm10[i%4] = vals[i];          // data->pm.pm10 = {vals[58], vals[59], vals[60], vals[61]};
+        }
+    }
 
     // return data;
 }
