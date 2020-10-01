@@ -376,12 +376,13 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
     // data.pm10 = fourBytes2float(vals[58], vals[59], vals[60], vals[61]);
     
     for (int i = 50; i < hist_length; i++) {
+        int pm_index = (i % 50) % 4;
         if (i < 54) {
-            data->pm.pm1[i] = vals[i];             // data->pm.pm1  = {vals[50], vals[51], vals[52], vals[53]};
+            data->pm.pm1[pm_index]  = vals[i];             // data->pm.pm1  = {vals[50], vals[51], vals[52], vals[53]};
         } else if (i < 58) {
-            data->pm.pm25[i%4] = vals[i];          // data->pm.pm25 = {vals[54], vals[55], vals[56], vals[57]};
+            data->pm.pm25[pm_index] = vals[i];          // data->pm.pm25 = {vals[54], vals[55], vals[56], vals[57]};
         } else {
-            data->pm.pm10[i%4] = vals[i];          // data->pm.pm10 = {vals[58], vals[59], vals[60], vals[61]};
+            data->pm.pm10[pm_index] = vals[i];          // data->pm.pm10 = {vals[58], vals[59], vals[60], vals[61]};
         }
     }
 
@@ -399,13 +400,13 @@ void pack_byte_pairs(struct PMData* pm_data, byte_pair_t* pm1_lo, byte_pair_t* p
 		pm10_byte = pm_data->pm10[i];
 
 		if (i < 2) {
-			pm1_lo->b[i] = pm1_byte;
+			pm1_lo->b[i]  = pm1_byte;
 			pm25_lo->b[i] = pm25_byte;    //pm_data->pm25[i];
 			pm10_lo->b[i] = pm10_byte;    //pm_data->pm10[i];
 		} else {
-			pm1_hi->b[i] = pm1_byte;
-			pm25_hi->b[i] = pm25_byte;    //pm_data->pm25[i];
-			pm10_hi->b[i] = pm10_byte;    //pm_data->pm10[i];
+			pm1_hi->b[i%2]  = pm1_byte;
+			pm25_hi->b[i%2] = pm25_byte;    //pm_data->pm25[i];
+			pm10_hi->b[i%2] = pm10_byte;    //pm_data->pm10[i];
 		}
 	}
 }
