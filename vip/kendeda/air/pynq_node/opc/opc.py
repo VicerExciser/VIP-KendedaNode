@@ -42,15 +42,25 @@ class OPC():
 	def on(self):
 		self.microblaze.write_blocking_command(OPC_ON)
 
+
 	def off(self):
 		self.microblaze.write_blocking_command(OPC_OFF)
+
 
 	def close(self):
 		self.microblaze.write_blocking_command(OPC_CLOSE)
 
+
 	def __del__(self):
-		self.off()
-		self.close()
+		try:
+			self.off()
+		except:
+			pass
+		try:
+			self.close()
+		except:
+			pass 
+
 
 	def read_pm(self):
 		self.microblaze.write_blocking_command(READ_PM)

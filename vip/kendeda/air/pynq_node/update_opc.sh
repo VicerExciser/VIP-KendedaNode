@@ -1,4 +1,5 @@
 #!/bin/bash
+PYFILE="opc.py"
 FAILS=0
 while ! git pull; do
 	FAILS=$((FAILS+1))
@@ -10,11 +11,13 @@ while ! git pull; do
 done
 LIBPATH="/home/xilinx/pynq/lib/arduino/"
 cp -v -r opc/ $LIBPATH
-cp opc/opc.py $LIBPATH
-#CWD=$(pwd)
+cp "opc/$PYFILE $LIBPATH"
+CWD=$(pwd)
 cd "${LIBPATH}opc/Debug/"
 pwd
 make
-#cd $CWD
-cd -
+cd $LIBPATH
+make
+cd $CWD
 pwd
+echo -e "\nNow run $PYFILE in $LIBPATH\n"
