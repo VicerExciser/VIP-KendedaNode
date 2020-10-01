@@ -8,7 +8,7 @@ A MicroBlaze application for the Alphasense OPC-N2 on the PYNQ-Z1 SoC.
 // include libraries
 // #include <stdio.h>
 #include <stdint.h>
-#include "xparameters.h"
+// #include "xparameters.h"
 #include "circular_buffer.h"
 #include "timer.h" 	// For delay_ms() and delay_us()
 #include "spi.h"	// Import the Xilinx SPI library
