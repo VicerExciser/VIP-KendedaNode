@@ -264,11 +264,11 @@ void read_pm_data(struct PMData* data) {
     */
     for (int i = 0; i < pm_length; i++) {
         if (i < 4) {
-            data->pm.pm1[i] = vals[i];
+            data->pm1[i] = vals[i];
         } else if (i < 8) {
-            data->pm.pm25[i%4] = vals[i];
+            data->pm25[i%4] = vals[i];
         } else {
-            data->pm.pm10[i%4] = vals[i];
+            data->pm10[i%4] = vals[i];
         }
     }
     // return data;
@@ -394,9 +394,9 @@ void pack_byte_pairs(struct PMData* pm_data, byte_pair_t* pm1_lo, byte_pair_t* p
 											 byte_pair_t* pm10_lo, byte_pair_t* pm10_hi) {
 	uint8_t pm1_byte, pm25_byte, pm10_byte;
 	for (int i = 0; i < 4; i++) {
-		pm1_byte  = pm_data->pm.pm1[i];
-		pm25_byte = pm_data->pm.pm25[i];
-		pm10_byte = pm_data->pm.pm10[i];
+		pm1_byte  = pm_data->pm1[i];
+		pm25_byte = pm_data->pm25[i];
+		pm10_byte = pm_data->pm10[i];
 
 		if (i < 2) {
 			pm1_lo->b[i] = pm1_byte;
