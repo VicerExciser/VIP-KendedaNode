@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 try:
 	from . import Arduino
@@ -25,6 +26,14 @@ class OPC():
 			base = BaseOverlay("base.bit")
 		if mb_info is None:
 			mb_info = base.ARDUINO 
+		bin_location = OPC_PROGRAM
+		if not os.path.exists(bin_location):
+			bin_location = os.path.join(LIB_PATH_PREFIX, OPC_PROGRAM)
+			if not os.path.exists(bin_location):
+				bin_location = os.path.join(LIB_PATH_PREFIX, "opc", OPC_PROGRAM)
+				if not os.path.exists(bin_location):
+					print(f"\n[{__file__}] ERROR: Could not locate program file '{OPC_PROGRAM}' -- aborting.\n'")
+					sys.exit(1)
 		self.microblaze = Arduino(mb_info, OPC_PROGRAM)
 		self.pm = {"PM1": 0.0, "PM2.5": 0.0, "PM10": 0.0}
 		self.hist = {}
