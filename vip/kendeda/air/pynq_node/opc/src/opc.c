@@ -11,8 +11,10 @@ A MicroBlaze application for the Alphasense OPC-N2 on the PYNQ-Z1 SoC.
 #include "timer.h" 	// For delay_ms() and delay_us()
 #include "spi.h"	// Import the Xilinx SPI library
 
-#define PM_BYTEWISE     // Comment out to read all PM values in a single SPI transaction
-#define HIST_BYTEWISE   // Comment out to read all Histogram data in a single SPI transaction
+// ------------------------------------------------------------------------------------------------
+
+// #define PM_BYTEWISE     // Comment out to read all PM values in a single SPI transaction
+// #define HIST_BYTEWISE   // Comment out to read all Histogram data in a single SPI transaction
 
 #define OFF 0
 #define ON  1
@@ -31,6 +33,8 @@ unsigned int ss_pin = 10; 		//13;
 #define OPC_CLOSE          0x7  // Close the SPI bus
 #define READ_PM            0x9  // Read particulate matter data
 #define READ_HIST          0xB  // Read histogram
+
+// ------------------------------------------------------------------------------------------------
 
 // Our SPI interface
 spi spi_device;
@@ -84,6 +88,7 @@ typedef union _byte_pair_t
     uint16_t val;
 } byte_pair_t;
 
+// ------------------------------------------------------------------------------------------------
 
 // Combine two bytes into a 16-bit unsigned int
 uint16_t twoBytes2int(uint8_t LSB, uint8_t MSB) {
@@ -114,6 +119,7 @@ float fourBytes2float(uint8_t val0, uint8_t val1, uint8_t val2, uint8_t val3) {
     return u.val;
 }
 
+// ------------------------------------------------------------------------------------------------
 
 // Setup SPI
 void device_setup() {
@@ -126,12 +132,14 @@ void device_setup() {
     delay_us(10000);
 }
 
+// ------------------------------------------------------------------------------------------------
 
 int close() {
 	spi_close(spi_device);
 	return 0;
 }
 
+// ------------------------------------------------------------------------------------------------
 
 // Turn OPC ON
 int on()
@@ -176,6 +184,7 @@ int on()
     return state;
 }
 
+// ------------------------------------------------------------------------------------------------
 
 // Turn OPC off
 int off() {
@@ -208,6 +217,7 @@ int off() {
     return state;
 }
 
+// ------------------------------------------------------------------------------------------------
 
 void read_pm_data(struct PMData* data) {
     /* Adapted from https://github.com/dhhagan/opcn2/blob/master/src/opcn2.cpp */
@@ -242,6 +252,8 @@ void read_pm_data(struct PMData* data) {
         }
     }
 }
+
+// ------------------------------------------------------------------------------------------------
 
 void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
     /*
@@ -339,6 +351,7 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
     }
 }
 
+// ------------------------------------------------------------------------------------------------
 
 void pack_byte_pairs(struct PMData* pm_data, byte_pair_t* pm1_lo, byte_pair_t* pm1_hi, 
 											 byte_pair_t* pm25_lo, byte_pair_t* pm25_hi, 
@@ -361,6 +374,7 @@ void pack_byte_pairs(struct PMData* pm_data, byte_pair_t* pm1_lo, byte_pair_t* p
 	}
 }
 
+// ------------------------------------------------------------------------------------------------
 
 int main(void) {
     u32 cmd;
