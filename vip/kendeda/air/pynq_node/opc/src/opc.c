@@ -137,6 +137,12 @@ void device_setup() {
 }
 
 
+int close() {
+	spi_close(spi_device);
+	return 0;
+}
+
+
 // Turn OPC ON
 int on()
 {
@@ -170,7 +176,7 @@ int on()
 		spi_transfer(spi_device, &write_data[1], &read_data[1], 1);
         
         // check if bytes were received
-        if (read_data[0] == expected[0] & read_data[1] == expected[1]) {
+        if ((read_data[0] == expected[0]) & (read_data[1] == expected[1])) {
             state = ON;
             // Serial.println("Command sucessful - OPC powered on!");
         } else {
@@ -212,7 +218,7 @@ int off() {
 		spi_transfer(spi_device, &write_data[1], &read_data[1], 1);
         
         // check if bytes were received
-        if (read_data[0] == expected[0] & read_data[1] == expected[1]) {
+        if ((read_data[0] == expected[0]) & (read_data[1] == expected[1])) {
             state = OFF;
             // Serial.println("Commands received - OPC powered off!");
         } else {
@@ -227,29 +233,23 @@ int off() {
 }
 
 
-int close() {
-	spi_close(spi_device);
-	return 0;
-}
-
-
 void read_pm_data(struct PMData* data) {
-    /* Adapted from https://github.com/dhhagan/opc/blob/master/src/opc.cpp */
+    /* Adapted from https://github.com/dhhagan/opcn2/blob/master/src/opcn2.cpp */
 	// struct PMData data;
-    const char* pm_command_byte = {0x32};
+    const char pm_command_byte = 0x32;
     int pm_length = 12;
 	char vals[pm_length];
 
 	// Read the data and clear the local memory
     char resp[] = {0x0};
-    spi_transfer(spi_device, pm_command_byte, resp, 1);     // Transfer the command byte
+    spi_transfer(spi_device, &pm_command_byte, resp, 1);     // Transfer the command byte
     delay_ms(12);       // Delay for 12 milliseconds
 
     // Send commands and build array of data
 #ifdef PM_BYTEWISE
-    const char* pm_read_byte = {0x00};
+    const char pm_read_byte = 0x00;
     for (int i = 0; i < pm_length; i++) {
-        spi_transfer(spi_device, pm_read_byte, &vals[i], 1);
+        spi_transfer(spi_device, &pm_read_byte, &vals[i], 1);
         delay_us(4);    // Delay for 4 microseconds
     }
 #else  // PM_BYTEWISE
@@ -288,7 +288,7 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
 #ifdef HIST_BYTEWISE
     const char hist_read_byte = 0x00;
     for (int i = 0; i < hist_length; i++) {
-        spi_transfer(spi_device, hist_read_byte, &vals[i], 1);
+        spi_transfer(spi_device, &hist_read_byte, &vals[i], 1);
         delay_us(4);    // Delay for 4 microseconds
     }
 #else   // HIST_BYTEWISE
@@ -302,9 +302,10 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
     spi_transfer(spi_device, cmd_bytes, vals, hist_length);
 #endif  // HIST_BYTEWISE
 
-    
-    data.period = fourBytes2float(vals[44], vals[45], vals[46], vals[47]);
-    data.sfr    = fourBytes2float(vals[36], vals[37], vals[38], vals[39]);
+    // data.period = fourBytes2float(vals[44], vals[45], vals[46], vals[47]);
+    // data.sfr    = fourBytes2float(vals[36], vals[37], vals[38], vals[39]);
+    data->period = fourBytes2float(vals[44], vals[45], vals[46], vals[47]);
+    data->sfr    = fourBytes2float(vals[36], vals[37], vals[38], vals[39]);
     /*
     data->period = {vals[44], vals[45], vals[46], vals[47]};
     data->sfr    = {vals[36], vals[37], vals[38], vals[39]};
@@ -347,14 +348,14 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
     data->bin14 = twoBytes2int(vals[28], vals[29]);
     data->bin15 = twoBytes2int(vals[30], vals[31]);
 
-    // data.bin1MToF = int(vals[32]) / 3.0;
-    // data.bin3MToF = int(vals[33]) / 3.0;
-    // data.bin5MToF = int(vals[34]) / 3.0;
-    // data.bin7MToF = int(vals[35]) / 3.0;
-    data->bin1MToF = int(vals[32]) / 3.0;
-    data->bin3MToF = int(vals[33]) / 3.0;
-    data->bin5MToF = int(vals[34]) / 3.0;
-    data->bin7MToF = int(vals[35]) / 3.0;
+    // data.bin1MToF = (int)(vals[32]) / 3.0;
+    // data.bin3MToF = (int)(vals[33]) / 3.0;
+    // data.bin5MToF = (int)(vals[34]) / 3.0;
+    // data.bin7MToF = (int)(vals[35]) / 3.0;
+    data->bin1MToF = (int)(vals[32]) / 3.0;
+    data->bin3MToF = (int)(vals[33]) / 3.0;
+    data->bin5MToF = (int)(vals[34]) / 3.0;
+    data->bin7MToF = (int)(vals[35]) / 3.0;
 
     // This holds either temperature or pressure
     // If temp, this is temp in C x 10
@@ -467,8 +468,8 @@ int main(void) {
                 break;
 
 			case READ_HIST:
-				int convert_to_conc = (int) MAILBOX_DATA(0);
-				read_histogram(&hist_data, convert_to_conc);
+				// int convert_to_conc = (int) MAILBOX_DATA(0);
+				read_histogram(&hist_data);  //, convert_to_conc);
 				pack_byte_pairs(&hist_data.pm, &pm1_lo, &pm1_hi, &pm25_lo, &pm25_hi, &pm10_lo, &pm10_hi);
 
 				// Write PM data to 6 16-bit mailbox slots
