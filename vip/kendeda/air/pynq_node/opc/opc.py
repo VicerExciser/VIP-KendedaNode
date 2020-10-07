@@ -8,8 +8,8 @@ except:
 	from pynq.lib import Arduino
 from pynq.overlays.base import BaseOverlay
 
-TESTING = True			## If True, will only run the OPC '_test_*' functions
-MOCK_MICROBLAZE = True
+TESTING = False			## If True, will only run the OPC '_test_*' functions
+MOCK_MICROBLAZE = False
 
 LIB_PATH_PREFIX = "/home/xilinx/pynq/lib/arduino"
 OPC_PROGRAM = "opc.bin"
@@ -50,7 +50,7 @@ class OPC():
 				if not os.path.exists(bin_location):
 					print(f"\n[{__file__}] ERROR: Could not locate program file '{OPC_PROGRAM}' -- aborting.\n")
 					sys.exit(1)
-		print(f"[{__file__}] MicroBlaze program filepath:  '{bin_location}'")
+		print(f"[{__file__}] MicroBlaze program filepath:  '{bin_location}'\n")
 
 		self.microblaze = Arduino(mb_info, OPC_PROGRAM) if not MOCK_MICROBLAZE else None
 		self.pm = {"PM1": 0.0, "PM2.5": 0.0, "PM10": 0.0}
