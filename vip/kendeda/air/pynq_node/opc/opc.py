@@ -9,6 +9,7 @@ except:
 from pynq.overlays.base import BaseOverlay
 
 TESTING = True
+MOCK_MICROBLAZE = True
 
 LIB_PATH_PREFIX = "/home/xilinx/pynq/lib/arduino"
 OPC_PROGRAM = "opc.bin"
@@ -29,7 +30,7 @@ def shorts2float(lo_byte_pair, hi_byte_pair):
 	4 bytes into a floating point value, then returns that float.
 	"""
 	ba = bytearray(struct.pack("HH", lo_byte_pair, hi_byte_pair))
-	f = struct.unpack('f', ba)
+	[f] = struct.unpack('f', ba)
 	return round(f, 4)
 
 
@@ -48,7 +49,7 @@ class OPC():
 				if not os.path.exists(bin_location):
 					print(f"\n[{__file__}] ERROR: Could not locate program file '{OPC_PROGRAM}' -- aborting.\n'")
 					sys.exit(1)
-		self.microblaze = Arduino(mb_info, OPC_PROGRAM)
+		self.microblaze = Arduino(mb_info, OPC_PROGRAM) if not MOCK_MICROBLAZE else None
 		self.pm = {"PM1": 0.0, "PM2.5": 0.0, "PM10": 0.0}
 		self.hist = {}
 
@@ -99,11 +100,11 @@ class OPC():
 
 	def _test_read_pm(self):
 		in_float_pm1 = in_float_pm25 = in_float_pm10 = None
-		prompt_fstr = "Enter a floating point value for PM{}:  "
+		prompt_fstr = "Enter a floating point value for PM {}{}:  "
 
 		while in_float_pm1 is None:
 			try:
-				in_float_pm1 = float(input(prompt_fstr.format('1')))
+				in_float_pm1 = float(input(prompt_fstr.format('1', ' '*2)))
 			except ValueError:
 				in_float_pm1 = None
 		ba_pm1 = bytearray(struct.pack('f', in_float_pm1))
@@ -113,7 +114,7 @@ class OPC():
 
 		while in_float_pm25 is None:
 			try:
-				in_float_pm25 = float(input(prompt_fstr.format('2.5')))
+				in_float_pm25 = float(input(prompt_fstr.format('2.5', '')))
 			except ValueError:
 				in_float_pm25 = None
 		ba_pm25 = bytearray(struct.pack('f', in_float_pm25))
@@ -123,7 +124,7 @@ class OPC():
 
 		while in_float_pm10 is None:
 			try:
-				in_float_pm10 = float(input(prompt_fstr.format('10')))
+				in_float_pm10 = float(input(prompt_fstr.format('10', ' ')))
 			except ValueError:
 				in_float_pm10 = None
 		ba_pm10 = bytearray(struct.pack('f', in_float_pm10))
@@ -131,7 +132,7 @@ class OPC():
 		hi_pm10 = (ba_pm10[3] << 8) | ba_pm10[2] 
 		self.pm["PM10"] = shorts2float(lo_pm10, hi_pm10)
 
-		print(f"[_test_read_pm]\n\tPM 1  :  {self.pm["PM1"]}\n\tPM 2.5:  {self.pm["PM2.5"]}\n\tPM 10 :  {self.pm["PM10"]}\n")
+		print(f"[_test_read_pm]\n\tPM 1  :  {self.pm['PM1']}\n\tPM 2.5:  {self.pm['PM2.5']}\n\tPM 10 :  {self.pm['PM10']}\n")
 
 		return self.pm
 		
@@ -181,7 +182,8 @@ class OPC():
 
 if __name__ == "__main__":
 	opc = OPC()
-	opc.on()
+	if not MOCK_MICROBLAZE:
+		opc.on()
 	for i in range(10):
 		pm = opc.read_pm() if not TESTING else opc._test_read_pm()
 		print(pm)
