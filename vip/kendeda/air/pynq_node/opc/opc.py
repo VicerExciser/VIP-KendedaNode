@@ -8,6 +8,8 @@ except:
 	from pynq.lib import Arduino
 from pynq.overlays.base import BaseOverlay
 
+TESTING = True
+
 LIB_PATH_PREFIX = "/home/xilinx/pynq/lib/arduino"
 OPC_PROGRAM = "opc.bin"
 
@@ -27,7 +29,8 @@ def shorts2float(lo_byte_pair, hi_byte_pair):
 	4 bytes into a floating point value, then returns that float.
 	"""
 	ba = bytearray(struct.pack("HH", lo_byte_pair, hi_byte_pair))
-	return struct.unpack('f', ba)
+	f = struct.unpack('f', ba)
+	return round(f, 4)
 
 
 class OPC():
@@ -94,6 +97,45 @@ class OPC():
 		return self.pm
 
 
+	def _test_read_pm(self):
+		in_float_pm1 = in_float_pm25 = in_float_pm10 = None
+		prompt_fstr = "Enter a floating point value for PM{}:  "
+
+		while in_float_pm1 is None:
+			try:
+				in_float_pm1 = float(input(prompt_fstr.format('1')))
+			except ValueError:
+				in_float_pm1 = None
+		ba_pm1 = bytearray(struct.pack('f', in_float_pm1))
+		lo_pm1 = (ba_pm1[1] << 8) | ba_pm1[0] 		## Account for byte order
+		hi_pm1 = (ba_pm1[3] << 8) | ba_pm1[2] 
+		self.pm["PM1"] = shorts2float(lo_pm1, hi_pm1)
+
+		while in_float_pm25 is None:
+			try:
+				in_float_pm25 = float(input(prompt_fstr.format('2.5')))
+			except ValueError:
+				in_float_pm25 = None
+		ba_pm25 = bytearray(struct.pack('f', in_float_pm25))
+		lo_pm25 = (ba_pm25[1] << 8) | ba_pm25[0] 		## Account for byte order
+		hi_pm25 = (ba_pm25[3] << 8) | ba_pm25[2] 
+		self.pm["PM2.5"] = shorts2float(lo_pm25, hi_pm25)
+
+		while in_float_pm10 is None:
+			try:
+				in_float_pm10 = float(input(prompt_fstr.format('10')))
+			except ValueError:
+				in_float_pm10 = None
+		ba_pm10 = bytearray(struct.pack('f', in_float_pm10))
+		lo_pm10 = (ba_pm10[1] << 8) | ba_pm10[0] 		## Account for byte order
+		hi_pm10 = (ba_pm10[3] << 8) | ba_pm10[2] 
+		self.pm["PM10"] = shorts2float(lo_pm10, hi_pm10)
+
+		print(f"[_test_read_pm]\n\tPM 1  :  {self.pm["PM1"]}\n\tPM 2.5:  {self.pm["PM2.5"]}\n\tPM 10 :  {self.pm["PM10"]}\n")
+
+		return self.pm
+		
+
 	def read_histogram(self):
 		self.microblaze.write_blocking_command(READ_HIST)
 
@@ -106,7 +148,7 @@ class OPC():
 		pm25_hi = self.microblaze.read_mailbox(3)
 		# self.pm["PM2.5"] = float(f"{pm25_lo}.{pm25_hi}")
 		self.pm["PM2.5"] = shorts2float(pm25_lo, pm25_hi)
-		
+
 		pm10_lo = self.microblaze.read_mailbox(4)
 		pm10_hi = self.microblaze.read_mailbox(5)
 		# self.pm["PM10"] = float(f"{pm10_lo}.{pm10_hi}")
@@ -141,7 +183,7 @@ if __name__ == "__main__":
 	opc = OPC()
 	opc.on()
 	for i in range(10):
-		pm = opc.read_pm()
+		pm = opc.read_pm() if not TESTING else opc._test_read_pm()
 		print(pm)
 		time.sleep(10)
 	opc.off()
