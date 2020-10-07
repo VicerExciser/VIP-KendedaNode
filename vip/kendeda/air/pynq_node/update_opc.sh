@@ -1,16 +1,37 @@
 #!/bin/bash
+
+####  Run as `./update_opc.sh -o` or `./update_opc.sh --offline` if no Internet connection is available
+
 PYFILE="opc.py"
 LIBPATH="${HOME}/pynq/lib/arduino/"
 DIVIDER="\n\n========================================"
-FAILS=0
-while ! git pull; do
-	FAILS=$((FAILS+1))
-	if [ "$FAILS" -gt 4 ]; then
-		echo -e "\nERROR: Could not reach github.com -- aborting.\n"
-		exit 1
-	fi
-	sleep 3s
+OFFLINE=false
+while [[ $# -gt 0 ]]; do
+	key="$1"
+
+	case $key in
+    	-o|--offline)
+    		OFFLINE=true
+    		shift # past argument
+    		;;
+    	*)    # unknown option
+    		shift # past argument
+    		;;
+	esac
 done
+if [ "$OFFLINE" = true ]; then
+	echo "${0} continuing offline."
+else
+	FAILS=0
+	while ! git pull; do
+		FAILS=$((FAILS+1))
+		if [ "$FAILS" -gt 4 ]; then
+			echo -e "\nERROR: Could not reach github.com -- aborting.\n"
+			exit 1
+		fi
+		sleep 3s
+	done
+fi
 echo -e "$DIVIDER"
 cp -v -r opc/ $LIBPATH
 # cp "opc/${PYFILE} ${LIBPATH}${PYFILE}"
