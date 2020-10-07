@@ -8,7 +8,7 @@ except:
 	from pynq.lib import Arduino
 from pynq.overlays.base import BaseOverlay
 
-TESTING = True
+TESTING = True			## If True, will only run the OPC '_test_*' functions
 MOCK_MICROBLAZE = True
 
 LIB_PATH_PREFIX = "/home/xilinx/pynq/lib/arduino"
@@ -21,8 +21,6 @@ OPC_CLOSE = 0x7
 READ_PM = 0x9
 READ_HIST = 0xB
 
-base = None
-
 
 def shorts2float(lo_byte_pair, hi_byte_pair):
 	""" 
@@ -31,39 +29,53 @@ def shorts2float(lo_byte_pair, hi_byte_pair):
 	"""
 	ba = bytearray(struct.pack("HH", lo_byte_pair, hi_byte_pair))
 	[f] = struct.unpack('f', ba)
-	return round(f, 4)
+	# return round(f, 4)
+	return f
 
 
 class OPC():
-	def __init__(self, mb_info=None):
-		global base 
-		if base is None:
-			base = BaseOverlay("base.bit")
+	def __init__(self, overlay=None, mb_info=None):
+		if overlay is None:
+			print(f"[{__file__}] Downloading BaseOverlay('base.bit')")
+			overlay = BaseOverlay("base.bit")
+
 		if mb_info is None:
 			mb_info = base.ARDUINO 
+
 		bin_location = OPC_PROGRAM
 		if not os.path.exists(bin_location):
 			bin_location = os.path.join(LIB_PATH_PREFIX, OPC_PROGRAM)
 			if not os.path.exists(bin_location):
 				bin_location = os.path.join(LIB_PATH_PREFIX, "opc", OPC_PROGRAM)
 				if not os.path.exists(bin_location):
-					print(f"\n[{__file__}] ERROR: Could not locate program file '{OPC_PROGRAM}' -- aborting.\n'")
+					print(f"\n[{__file__}] ERROR: Could not locate program file '{OPC_PROGRAM}' -- aborting.\n")
 					sys.exit(1)
+		print(f"[{__file__}] MicroBlaze program filepath:  '{bin_location}'")
+
 		self.microblaze = Arduino(mb_info, OPC_PROGRAM) if not MOCK_MICROBLAZE else None
 		self.pm = {"PM1": 0.0, "PM2.5": 0.0, "PM10": 0.0}
 		self.hist = {}
 
 
 	def on(self):
-		self.microblaze.write_blocking_command(OPC_ON)
+		if self.microblaze is not None:
+			self.microblaze.write_blocking_command(OPC_ON)
+		else:
+			print("[OPC::on] Error: microblaze instance is None -- ignoring call to 'on()'.")
 
 
 	def off(self):
-		self.microblaze.write_blocking_command(OPC_OFF)
+		if self.microblaze is not None:
+			self.microblaze.write_blocking_command(OPC_OFF)
+		else:
+			print("[OPC::off] Error: microblaze instance is None -- ignoring call to 'off()'.")
 
 
 	def close(self):
-		self.microblaze.write_blocking_command(OPC_CLOSE)
+		if self.microblaze is not None:
+			self.microblaze.write_blocking_command(OPC_CLOSE)
+		else:
+			print("[OPC::close] microblaze instance is None -- ignoring call to 'close()'.")
 
 
 	def __del__(self):
@@ -78,6 +90,9 @@ class OPC():
 
 
 	def read_pm(self):
+		if TESTING:
+			return self._test_read_pm()
+
 		self.microblaze.write_blocking_command(READ_PM)
 
 		pm1_lo = self.microblaze.read_mailbox(0)
@@ -142,17 +157,14 @@ class OPC():
 
 		pm1_lo = self.microblaze.read_mailbox(0)
 		pm1_hi = self.microblaze.read_mailbox(1)
-		# self.pm["PM1"] = float(f"{pm1_lo}.{pm1_hi}")
 		self.pm["PM1"] = shorts2float(pm1_lo, pm1_hi)
 
 		pm25_lo = self.microblaze.read_mailbox(2)
 		pm25_hi = self.microblaze.read_mailbox(3)
-		# self.pm["PM2.5"] = float(f"{pm25_lo}.{pm25_hi}")
 		self.pm["PM2.5"] = shorts2float(pm25_lo, pm25_hi)
 
 		pm10_lo = self.microblaze.read_mailbox(4)
 		pm10_hi = self.microblaze.read_mailbox(5)
-		# self.pm["PM10"] = float(f"{pm10_lo}.{pm10_hi}")
 		self.pm["PM10"] = shorts2float(pm10_lo, pm10_hi)
 
 		self.hist["PM1"] = self.pm["PM1"]
@@ -185,7 +197,7 @@ if __name__ == "__main__":
 	if not MOCK_MICROBLAZE:
 		opc.on()
 	for i in range(10):
-		pm = opc.read_pm() if not TESTING else opc._test_read_pm()
+		pm = opc.read_pm()  #if not TESTING else opc._test_read_pm()
 		print(pm)
 		time.sleep(10)
 	opc.off()
