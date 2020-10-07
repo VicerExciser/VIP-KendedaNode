@@ -21,10 +21,10 @@ A MicroBlaze application for the Alphasense OPC-N2 on the PYNQ-Z1 SoC.
 #define PACKET_LENGTH 2  // Bytes
 
 // CHANGE THESE
-unsigned int spiclk_pin = 13; 	//10;
-unsigned int miso_pin = 12; 	//11;
-unsigned int mosi_pin = 11; 	//12;
-unsigned int ss_pin = 10; 		//13;
+const unsigned int SPICLK_PIN = 13; 	//10;
+const unsigned int MISO_PIN = 12; 	    //11;
+const unsigned int MOSI_PIN = 11; 	    //12;
+const unsigned int SS_PIN = 10; 		//13;
 
 // Mailbox Commands
 #define CONFIG_IOP_SWITCH  0x1
@@ -38,6 +38,9 @@ unsigned int ss_pin = 10; 		//13;
 
 // Our SPI interface
 spi spi_device;
+
+const int PM_LENGTH = 12;
+const int HIST_LENGTH = 62;
 
 struct PMData {
     /*
@@ -139,7 +142,7 @@ void device_setup() {
      * Initialize SPIs with clk_polarity and clk_phase as 0
      * Configure D10-D13 as Shared SPI (MISO is not used)
      */
-	spi_device = spi_open(spiclk_pin, miso_pin, mosi_pin, ss_pin);			// Initialize SPI on the PYNQ
+	spi_device = spi_open(SPICLK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);			// Initialize SPI on the PYNQ
 	spi_device = spi_configure(spi_device, 0, 0);
     delay_us(10000);
 }
@@ -234,8 +237,7 @@ int off() {
 void read_pm_data(struct PMData* data) {
     /* Adapted from https://github.com/dhhagan/opcn2/blob/master/src/opcn2.cpp */
     const char pm_command_byte = 0x32;
-    int pm_length = 12;
-	char vals[pm_length];
+	char vals[PM_LENGTH];
 
 	// Read the data and clear the local memory
     char resp[] = {0x0};
@@ -245,16 +247,16 @@ void read_pm_data(struct PMData* data) {
     // Send commands and build array of data
 #ifdef PM_BYTEWISE
     const char pm_read_byte = 0x00;
-    for (int i = 0; i < pm_length; i++) {
+    for (int i = 0; i < PM_LENGTH; i++) {
         spi_transfer(spi_device, &pm_read_byte, &vals[i], 1);
         delay_us(4);    // Delay for 4 microseconds
     }
 #else  // PM_BYTEWISE
-    const char cmd_bytes[pm_length] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
-    spi_transfer(spi_device, cmd_bytes, vals, pm_length);
+    const char cmd_bytes[PM_LENGTH] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+    spi_transfer(spi_device, cmd_bytes, vals, PM_LENGTH);
 #endif  // PM_BYTEWISE
 
-    for (int i = 0; i < pm_length; i++) {
+    for (int i = 0; i < PM_LENGTH; i++) {
         if (i < 4) {
             data->pm1[i] = vals[i];
         } else if (i < 8) {
@@ -273,8 +275,7 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
         if convert_to_conc == 0:  bin units are in particle count per second [#/s] per size bin [microns]
     */
     const char hist_command_byte = 0x30;
-    int hist_length = 62;
-    char vals[hist_length];
+    char vals[HIST_LENGTH];
 
     // Read the data and clear the local memory
     char resp[] = {0x00};
@@ -284,19 +285,19 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
     // Send commands and build array of data
 #ifdef HIST_BYTEWISE
     const char hist_read_byte = 0x00;
-    for (int i = 0; i < hist_length; i++) {
+    for (int i = 0; i < HIST_LENGTH; i++) {
         spi_transfer(spi_device, &hist_read_byte, &vals[i], 1);
         delay_us(4);    // Delay for 4 microseconds
     }
 #else   // HIST_BYTEWISE
-    const char cmd_bytes[hist_length] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+    const char cmd_bytes[HIST_LENGTH] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
                                         0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
                                         0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
                                         0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
                                         0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
                                         0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
                                         0x0, 0x0};
-    spi_transfer(spi_device, cmd_bytes, vals, hist_length);
+    spi_transfer(spi_device, cmd_bytes, vals, HIST_LENGTH);
 #endif  // HIST_BYTEWISE
 
     data->period = fourBytes2float(vals[44], vals[45], vals[46], vals[47]);
@@ -351,7 +352,7 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
 
     data->checksum = twoBytes2int(vals[48], vals[49]);
     
-    for (int i = 50; i < hist_length; i++) {
+    for (int i = 50; i < HIST_LENGTH; i++) {
         int pm_index = (i % 50) % 4;
         if (i < 54) {
             data->pm.pm1[pm_index]  = vals[i];             // data->pm.pm1  = {vals[50], vals[51], vals[52], vals[53]};
