@@ -52,6 +52,7 @@ class OPC():
 					sys.exit(1)
 		print(f"[{__file__}] MicroBlaze program filepath:  '{bin_location}'\n")
 
+		## See:  https://github.com/Xilinx/PYNQ/blob/master/pynq/lib/arduino/arduino.py
 		self.microblaze = Arduino(mb_info, OPC_PROGRAM) if not MOCK_MICROBLAZE else None
 		self.pm = {"PM1": 0.0, "PM2.5": 0.0, "PM10": 0.0}
 		self.hist = {}

@@ -21,10 +21,14 @@ A MicroBlaze application for the Alphasense OPC-N2 on the PYNQ-Z1 SoC.
 #define PACKET_LENGTH 2  // Bytes
 
 // CHANGE THESE
-const unsigned int SPICLK_PIN = 13; 	//10;
-const unsigned int MISO_PIN = 12; 	    //11;
-const unsigned int MOSI_PIN = 11; 	    //12;
-const unsigned int SS_PIN = 10; 		//13;
+// const unsigned int SPICLK_PIN = 13; 	//10;
+// const unsigned int MISO_PIN = 12; 	    //11;
+// const unsigned int MOSI_PIN = 11; 	    //12;
+// const unsigned int SS_PIN = 10; 		//13;
+const unsigned int SPICLK_PIN = 10;
+const unsigned int MISO_PIN = 11;
+const unsigned int MOSI_PIN = 12;
+const unsigned int SS_PIN = 13;
 
 // Mailbox Commands
 #define CONFIG_IOP_SWITCH  0x1
@@ -142,7 +146,7 @@ void float2FourBytes(char bytes[4], float f) {
 void device_setup() {
 	/*
      * Initialize SPIs with clk_polarity and clk_phase as 0
-     * Configure D10-D13 as Shared SPI (MISO is not used)
+     * Configure D10-D13 as Shared SPI
      */
 	spi_device = spi_open(SPICLK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);			// Initialize SPI on the PYNQ
 	spi_device = spi_configure(spi_device, 0, 0);
