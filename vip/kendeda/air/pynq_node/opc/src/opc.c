@@ -119,6 +119,18 @@ float fourBytes2float(uint8_t val0, uint8_t val1, uint8_t val2, uint8_t val3) {
     return u.val;
 }
 
+void float2FourBytes(char bytes[4], float f) {
+	union u_tag
+    {
+    	uint8_t b[4];
+    	float val;
+    } u;
+	u.val = f;
+	for (int i = 0; i < 4; i++) {
+		bytes[i] = u.b[i];
+	}
+}
+
 // ------------------------------------------------------------------------------------------------
 
 // Setup SPI

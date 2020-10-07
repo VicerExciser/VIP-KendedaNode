@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import struct
 try:
 	from . import Arduino
 except:
@@ -18,6 +19,16 @@ READ_PM = 0x9
 READ_HIST = 0xB
 
 base = None
+
+
+def shorts2float(lo_byte_pair, hi_byte_pair):
+	""" 
+	Takes in 2 unsigned short (integers) and packs their collective
+	4 bytes into a floating point value, then returns that float.
+	"""
+	ba = bytearray(struct.pack("HH", lo_byte_pair, hi_byte_pair))
+	return struct.unpack('f', ba)
+
 
 class OPC():
 	def __init__(self, mb_info=None):
@@ -64,32 +75,47 @@ class OPC():
 
 	def read_pm(self):
 		self.microblaze.write_blocking_command(READ_PM)
+
 		pm1_lo = self.microblaze.read_mailbox(0)
 		pm1_hi = self.microblaze.read_mailbox(1)
-		self.pm["PM1"] = float(f"{pm1_lo}.{pm1_hi}")
+		# self.pm["PM1"] = float(f"{pm1_lo}.{pm1_hi}")
+		self.pm["PM1"] = shorts2float(pm1_lo, pm1_hi)
+
 		pm25_lo = self.microblaze.read_mailbox(2)
 		pm25_hi = self.microblaze.read_mailbox(3)
-		self.pm["PM2.5"] = float(f"{pm25_lo}.{pm25_hi}")
+		# self.pm["PM2.5"] = float(f"{pm25_lo}.{pm25_hi}")
+		self.pm["PM2.5"] = shorts2float(pm25_lo, pm25_hi)
+
 		pm10_lo = self.microblaze.read_mailbox(4)
 		pm10_hi = self.microblaze.read_mailbox(5)
-		self.pm["PM10"] = float(f"{pm10_lo}.{pm10_hi}")
+		# self.pm["PM10"] = float(f"{pm10_lo}.{pm10_hi}")
+		self.pm["PM10"] = shorts2float(pm10_lo, pm10_hi)
+
 		return self.pm
 
 
 	def read_histogram(self):
 		self.microblaze.write_blocking_command(READ_HIST)
+
 		pm1_lo = self.microblaze.read_mailbox(0)
 		pm1_hi = self.microblaze.read_mailbox(1)
-		self.pm["PM1"] = float(f"{pm1_lo}.{pm1_hi}")
+		# self.pm["PM1"] = float(f"{pm1_lo}.{pm1_hi}")
+		self.pm["PM1"] = shorts2float(pm1_lo, pm1_hi)
+
 		pm25_lo = self.microblaze.read_mailbox(2)
 		pm25_hi = self.microblaze.read_mailbox(3)
-		self.pm["PM2.5"] = float(f"{pm25_lo}.{pm25_hi}")
+		# self.pm["PM2.5"] = float(f"{pm25_lo}.{pm25_hi}")
+		self.pm["PM2.5"] = shorts2float(pm25_lo, pm25_hi)
+		
 		pm10_lo = self.microblaze.read_mailbox(4)
 		pm10_hi = self.microblaze.read_mailbox(5)
-		self.pm["PM10"] = float(f"{pm10_lo}.{pm10_hi}")
+		# self.pm["PM10"] = float(f"{pm10_lo}.{pm10_hi}")
+		self.pm["PM10"] = shorts2float(pm10_lo, pm10_hi)
+
 		self.hist["PM1"] = self.pm["PM1"]
 		self.hist["PM2.5"] = self.pm["PM2.5"]
 		self.hist["PM10"] = self.pm["PM10"]
+
 		self.hist["bin0"] = self.microblaze.read_mailbox(6)
 		self.hist["bin1"] = self.microblaze.read_mailbox(7)
 		self.hist["bin2"] = self.microblaze.read_mailbox(8)
@@ -106,6 +132,7 @@ class OPC():
 		self.hist["bin13"] = self.microblaze.read_mailbox(19)
 		self.hist["bin14"] = self.microblaze.read_mailbox(20)
 		self.hist["bin15"] = self.microblaze.read_mailbox(21)
+
 		return self.hist 
 
 
