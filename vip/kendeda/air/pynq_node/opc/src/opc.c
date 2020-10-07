@@ -39,8 +39,10 @@ const unsigned int SS_PIN = 10; 		//13;
 // Our SPI interface
 spi spi_device;
 
-const int PM_LENGTH = 12;
-const int HIST_LENGTH = 62;
+//const int PM_LENGTH = 12;
+//const int HIST_LENGTH = 62;
+#define PM_LENGTH    12
+#define HIST_LENGTH  62
 
 struct PMData {
     /*
