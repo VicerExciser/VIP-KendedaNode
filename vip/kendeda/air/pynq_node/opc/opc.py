@@ -40,7 +40,7 @@ class OPC():
 			overlay = BaseOverlay("base.bit")
 
 		if mb_info is None:
-			mb_info = base.ARDUINO 
+			mb_info = overlay.ARDUINO 
 
 		bin_location = OPC_PROGRAM
 		if not os.path.exists(bin_location):
