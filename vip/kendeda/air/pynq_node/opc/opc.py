@@ -20,7 +20,7 @@ OPC_OFF = 0x5
 OPC_CLOSE = 0x7
 READ_PM = 0x9
 READ_HIST = 0xB
-
+NUM_DEVICES = 0xD
 
 def shorts2float(lo_byte_pair, hi_byte_pair):
 	""" 
@@ -36,7 +36,7 @@ def shorts2float(lo_byte_pair, hi_byte_pair):
 class OPC():
 	def __init__(self, overlay=None, mb_info=None):
 		if overlay is None:
-			print(f"[{__file__}] Downloading BaseOverlay('base.bit')")
+			print(f"[{__file__.split('/')[-1]}] Downloading BaseOverlay('base.bit')")
 			overlay = BaseOverlay("base.bit")
 
 		if mb_info is None:
@@ -48,14 +48,17 @@ class OPC():
 			if not os.path.exists(bin_location):
 				bin_location = os.path.join(LIB_PATH_PREFIX, "opc", OPC_PROGRAM)
 				if not os.path.exists(bin_location):
-					print(f"\n[{__file__}] ERROR: Could not locate program file '{OPC_PROGRAM}' -- aborting.\n")
+					print(f"\n[{__file__.split('/')[-1]}] ERROR: Could not locate program file '{OPC_PROGRAM}' -- aborting.\n")
 					sys.exit(1)
-		print(f"[{__file__}] MicroBlaze program filepath:  '{bin_location}'\n")
+		print(f"[{__file__.split('/')[-1]}] MicroBlaze program filepath:  '{bin_location}'\n")
 
 		## See:  https://github.com/Xilinx/PYNQ/blob/master/pynq/lib/arduino/arduino.py
 		self.microblaze = Arduino(mb_info, OPC_PROGRAM) if not MOCK_MICROBLAZE else None
 		self.pm = {"PM1": 0.0, "PM2.5": 0.0, "PM10": 0.0}
 		self.hist = {}
+
+		print(f"[{__file__.split('/')[-1]}] Number of SPI devices found:  ", end='')
+		print(self.get_num_devices())
 
 
 	def on(self):
@@ -88,6 +91,15 @@ class OPC():
 			self.close()
 		except:
 			pass 
+
+
+	def get_num_devices(self):
+		if self.microblaze is None:
+			print("[OPC::get_num_devices] Error: microblaze instance is None -- ignoring call to 'get_num_devices()'.")
+			return None
+		self.microblaze.write_blocking_command(OPC_OFF)
+		n = self.microblaze.read_mailbox(0)
+		return n
 
 
 	def read_pm(self):

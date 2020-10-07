@@ -20,15 +20,17 @@ A MicroBlaze application for the Alphasense OPC-N2 on the PYNQ-Z1 SoC.
 #define ON  1
 #define PACKET_LENGTH 2  // Bytes
 
-// CHANGE THESE
-// const unsigned int SPICLK_PIN = 13; 	//10;
-// const unsigned int MISO_PIN = 12; 	    //11;
-// const unsigned int MOSI_PIN = 11; 	    //12;
-// const unsigned int SS_PIN = 10; 		//13;
+// CHANGE THESE (?)
+const unsigned int SPICLK_PIN = 13;
+const unsigned int MISO_PIN = 12;
+const unsigned int MOSI_PIN = 11;
+const unsigned int SS_PIN = 10;
+/*
 const unsigned int SPICLK_PIN = 10;
 const unsigned int MISO_PIN = 11;
 const unsigned int MOSI_PIN = 12;
 const unsigned int SS_PIN = 13;
+*/
 
 // Mailbox Commands
 #define CONFIG_IOP_SWITCH  0x1
@@ -37,6 +39,7 @@ const unsigned int SS_PIN = 13;
 #define OPC_CLOSE          0x7  // Close the SPI bus
 #define READ_PM            0x9  // Read particulate matter data
 #define READ_HIST          0xB  // Read histogram
+#define NUM_DEVICES        0xD  // Read number of connected SPI devices
 
 // ------------------------------------------------------------------------------------------------
 
@@ -150,7 +153,7 @@ void device_setup() {
      */
 	spi_device = spi_open(SPICLK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);			// Initialize SPI on the PYNQ
 	spi_device = spi_configure(spi_device, 0, 0);
-    delay_us(10000);
+    //delay_us(10000);
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -480,6 +483,11 @@ int main(void) {
 
 				MAILBOX_CMD_ADDR = 0x0;
                 break;
+
+			case NUM_DEVICES:
+				MAILBOX_DATA(0) = spi_get_num_devices();
+				MAILBOX_CMD_ADDR = 0x0;
+				break;
 
 			default:
 				MAILBOX_CMD_ADDR = 0x0;
