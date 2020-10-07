@@ -53,12 +53,16 @@ class OPC():
 		print(f"[{__file__.split('/')[-1]}] MicroBlaze program filepath:  '{bin_location}'\n")
 
 		## See:  https://github.com/Xilinx/PYNQ/blob/master/pynq/lib/arduino/arduino.py
+		print("(in __init__: invoking pynq.lib.arduino.Arduino constructor)")
 		self.microblaze = Arduino(mb_info, OPC_PROGRAM) if not MOCK_MICROBLAZE else None
+		print("(in __init__: returned from pynq.lib.arduino.Arduino constructor)")
+
+		print(f"[{__file__.split('/')[-1]}] Number of SPI devices found:  ")  #, end='')
+		print(self.get_num_devices())
+
 		self.pm = {"PM1": 0.0, "PM2.5": 0.0, "PM10": 0.0}
 		self.hist = {}
 
-		print(f"[{__file__.split('/')[-1]}] Number of SPI devices found:  ", end='')
-		print(self.get_num_devices())
 
 
 	def on(self):
@@ -110,17 +114,14 @@ class OPC():
 
 		pm1_lo = self.microblaze.read_mailbox(0)
 		pm1_hi = self.microblaze.read_mailbox(1)
-		# self.pm["PM1"] = float(f"{pm1_lo}.{pm1_hi}")
 		self.pm["PM1"] = shorts2float(pm1_lo, pm1_hi)
 
 		pm25_lo = self.microblaze.read_mailbox(2)
 		pm25_hi = self.microblaze.read_mailbox(3)
-		# self.pm["PM2.5"] = float(f"{pm25_lo}.{pm25_hi}")
 		self.pm["PM2.5"] = shorts2float(pm25_lo, pm25_hi)
 
 		pm10_lo = self.microblaze.read_mailbox(4)
 		pm10_hi = self.microblaze.read_mailbox(5)
-		# self.pm["PM10"] = float(f"{pm10_lo}.{pm10_hi}")
 		self.pm["PM10"] = shorts2float(pm10_lo, pm10_hi)
 
 		return self.pm

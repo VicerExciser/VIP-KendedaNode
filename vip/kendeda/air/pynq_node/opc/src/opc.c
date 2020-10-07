@@ -407,7 +407,7 @@ int main(void) {
     device_setup();
 
     while (1) {
-        while (MAILBOX_CMD_ADDR == 0);
+        while ((MAILBOX_CMD_ADDR & 0x01) == 0);
         cmd = MAILBOX_CMD_ADDR;
 
         switch (cmd) {
