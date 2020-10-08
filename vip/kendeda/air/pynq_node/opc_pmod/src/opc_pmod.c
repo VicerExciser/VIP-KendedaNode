@@ -20,11 +20,11 @@ A MicroBlaze application for the Alphasense OPC-N2 on the PYNQ-Z1 SoC.
 #define ON  1
 #define PACKET_LENGTH 2  // Bytes
 
-// CHANGE THESE (?)
-const unsigned int SPICLK_PIN = 13;
-const unsigned int MISO_PIN = 12;
-const unsigned int MOSI_PIN = 11;
-const unsigned int SS_PIN = 10;
+// Pmod SPI pin assignments (pins 0, 1, 4, and 5 support SPI as they are tied to pins w/ pull-down resistors)
+#define SPICLK_PIN 1		// OPC pin #2
+#define MISO_PIN   0		// OPC pin #3
+#define MOSI_PIN   4		// OPC pin #4
+#define SS_PIN     5		// OPC pin #5
 
 // Mailbox Commands
 #define CONFIG_IOP_SWITCH  0x1
@@ -34,48 +34,50 @@ const unsigned int SS_PIN = 10;
 #define READ_PM            0x9  // Read particulate matter data
 #define READ_HIST          0xB  // Read histogram
 #define NUM_DEVICES        0xD  // Read number of connected SPI devices
+#define READ_STATE         0xF  // Read whether the device is on or off 
 
 // ------------------------------------------------------------------------------------------------
 
 // Our SPI interface
-spi spi_device;
+spi spi_device = NULL;
+int state = OFF;	// Assuming device is off to begin with
 
 #define PM_LENGTH    12
 #define HIST_LENGTH  62
 
 struct PMData {
-	char pm1[4];
-	char pm25[4];
-	char pm10[4];
+	u8 pm1[4];
+	u8 pm25[4];
+	u8 pm10[4];
 };
 
 struct HistogramData {
-	uint16_t bin0;
-	uint16_t bin1;
-	uint16_t bin2;
-	uint16_t bin3;
-	uint16_t bin4;
-	uint16_t bin5;
-	uint16_t bin6;
-	uint16_t bin7;
-	uint16_t bin8;
-	uint16_t bin9;
-	uint16_t bin10;
-	uint16_t bin11;
-	uint16_t bin12;
-	uint16_t bin13;
-	uint16_t bin14;
-	uint16_t bin15;
+	u16 bin0;
+	u16 bin1;
+	u16 bin2;
+	u16 bin3;
+	u16 bin4;
+	u16 bin5;
+	u16 bin6;
+	u16 bin7;
+	u16 bin8;
+	u16 bin9;
+	u16 bin10;
+	u16 bin11;
+	u16 bin12;
+	u16 bin13;
+	u16 bin14;
+	u16 bin15;
 
-	float bin1MToF; // Mass Time-of-Flight
+	float bin1MToF;                 // Mass Time-of-Flight
 	float bin3MToF; 
 	float bin5MToF;
 	float bin7MToF;
 
-	float sfr;  // Sample Flow Rate
+	float sfr;                      // Sample Flow Rate
 	unsigned long temp_pressure;    // Either the Temperature or Pressure
-	float period;   // Sampling Period
-	unsigned int checksum;  // Checksum
+	float period;                   // Sampling Period
+	unsigned int checksum;          // Checksum
 
 	struct PMData pm;
 };
@@ -83,30 +85,30 @@ struct HistogramData {
 
 typedef union _byte_pair_t
 {
-	uint8_t b[2];
-	uint16_t val;
+	u8 b[2];
+	u16 val;
 } byte_pair_t;
 
 // ------------------------------------------------------------------------------------------------
 
 // Combine two bytes into a 16-bit unsigned int
-uint16_t twoBytes2int(uint8_t LSB, uint8_t MSB) {
-	uint16_t int_val = ((MSB << 8) | LSB);
+u16 twoBytes2int(u8 LSB, u8 MSB) {
+	u16 int_val = ((MSB << 8) | LSB);
 	return int_val;
 }
 
 
 // Return a 32-bit unsigned int from 4 bytes
-uint32_t fourBytes2int(uint8_t val0, uint8_t val1, uint8_t val2, uint8_t val3) {
+u32 fourBytes2int(u8 val0, u8 val1, u8 val2, u8 val3) {
 	return ((val3 << 24) | (val2 << 16) | (val1 << 8) | val0);
 }
 
 
 // Return an IEEE754 float from an array of 4 bytes
-float fourBytes2float(uint8_t val0, uint8_t val1, uint8_t val2, uint8_t val3) {
+float fourBytes2float(u8 val0, u8 val1, u8 val2, u8 val3) {
 	union u_tag
 	{
-		uint8_t b[4];
+		u8 b[4];
 		float val;
 	} u;
 	
@@ -119,10 +121,10 @@ float fourBytes2float(uint8_t val0, uint8_t val1, uint8_t val2, uint8_t val3) {
 }
 
 
-void float2FourBytes(char bytes[4], float f) {
+void float2FourBytes(u8 bytes[4], float f) {
 	union u_tag
 	{
-		uint8_t b[4];
+		u8 b[4];
 		float val;
 	} u;
 	u.val = f;
@@ -137,11 +139,14 @@ void float2FourBytes(char bytes[4], float f) {
 void device_setup() {
 	/*
 	 * Initialize SPIs with clk_polarity and clk_phase as 0
-	 * Configure D10-D13 as Shared SPI
 	 */
 	spi_device = spi_open(SPICLK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);			// Initialize SPI on the PYNQ
 	spi_device = spi_configure(spi_device, 0, 0);
-	//delay_us(10000);
+	delay_us(10000);
+	
+	// For experimental purposes:
+	on();
+	off();
 }
 
 // ------------------------------------------------------------------------------------------------
@@ -153,16 +158,15 @@ int close() {
 
 // ------------------------------------------------------------------------------------------------
 
-// Turn OPC ON
+// Turn OPC on -- Returns the OPC state (0 - off; 1 - on) 
 int on() {
-	int i = 0;
-	int state = OFF;                                            // OPC status (0 - off; 1 - on) assumed off        
-	const char write_data[PACKET_LENGTH] = {0x03, 0x00};	// "ON" command bytes
-	const char expected[PACKET_LENGTH] = {243, 3}; 			// Return bytes (0xF3, 0x03)
-	char read_data[PACKET_LENGTH] = {0, 0}; 				// Initialize array for return bytes
+	const u8 write_data[PACKET_LENGTH] = {0x03, 0x00};	// "ON" command bytes
+	const u8 expected[PACKET_LENGTH] = {243, 3}; 			// Return bytes (0xF3, 0x03)
+	u8 read_data[PACKET_LENGTH] = {0, 0}; 				// Initialize array for return bytes
 
 	// Command OPC on while it's off (three attempts)
-	while (state == OFF) {
+	int i = 0;
+	while (state == OFF) { 	// OPC assumed off
 		i++;
 		// SPI Transaction:
 		// (1) Write 0x03 to bus --> should populate read_data[0] response byte with 0xF3
@@ -183,7 +187,7 @@ int on() {
 				delay_ms(15000);
 			} else if (i==2) {   // Reset OPC and repeat command if second attempt was unsucessful
 				delay_ms(65000);
-			} else if (i==3) {   // Close SPI bus if third attempt was unsucessful
+			} else {   // Close SPI bus if third attempt was unsucessful
 				close();
 			}
 		 }
@@ -194,12 +198,11 @@ int on() {
 
 // ------------------------------------------------------------------------------------------------
 
-// Turn OPC off
+// Turn OPC off -- Returns the OPC state (0 - off; 1 - on) 
 int off() {
-	int state = ON;                                         // OPC assumed on
-	const char write_data[PACKET_LENGTH] = {0x03, 0x01}; 	// "OFF" command bytes
-	const char expected[PACKET_LENGTH] = {243, 3};			// Return bytes (0xF3, 0x03)
-	char read_data[PACKET_LENGTH] = {0, 0}; 				// Initialize array for return bytes
+	const u8 write_data[PACKET_LENGTH] = {0x03, 0x01}; 	// "OFF" command bytes
+	const u8 expected[PACKET_LENGTH] = {243, 3};			// Return bytes (0xF3, 0x03)
+	u8 read_data[PACKET_LENGTH] = {0, 0}; 				// Initialize array for return bytes
 	
 	while (state == ON) {
 		// SPI Transaction:
@@ -226,23 +229,23 @@ int off() {
 
 void read_pm_data(struct PMData* data) {
 	/* Adapted from https://github.com/dhhagan/opcn2/blob/master/src/opcn2.cpp */
-	const char pm_command_byte = 0x32;
-	char vals[PM_LENGTH];
+	const u8 pm_command_byte = 0x32;
+	u8 vals[PM_LENGTH];
 
 	// Read the data and clear the local memory
-	char resp[] = {0x0};
+	u8 resp[] = {0x0};
 	spi_transfer(spi_device, &pm_command_byte, resp, 1);     // Transfer the command byte
 	delay_ms(12);       // Delay for 12 milliseconds
 
 	// Send commands and build array of data
 #ifdef PM_BYTEWISE
-	const char pm_read_byte = 0x00;
+	const u8 pm_read_byte = 0x00;
 	for (int i = 0; i < PM_LENGTH; i++) {
 		spi_transfer(spi_device, &pm_read_byte, &vals[i], 1);
 		delay_us(4);    // Delay for 4 microseconds
 	}
 #else  // PM_BYTEWISE
-	const char cmd_bytes[PM_LENGTH] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+	const u8 cmd_bytes[PM_LENGTH] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 	spi_transfer(spi_device, cmd_bytes, vals, PM_LENGTH);
 #endif  // PM_BYTEWISE
 
@@ -264,23 +267,23 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
 		if convert_to_conc == 1:  bin units are in concentration of particles [particles/ml] per size bin [microns]
 		if convert_to_conc == 0:  bin units are in particle count per second [#/s] per size bin [microns]
 	*/
-	const char hist_command_byte = 0x30;
-	char vals[HIST_LENGTH];
+	const u8 hist_command_byte = 0x30;
+	u8 vals[HIST_LENGTH];
 
 	// Read the data and clear the local memory
-	char resp[] = {0x00};
+	u8 resp[] = {0x00};
 	spi_transfer(spi_device, &hist_command_byte, resp, 1);  // Transfer the command byte
 	delay_ms(12);       // Delay for 12 milliseconds
 
 	// Send commands and build array of data
 #ifdef HIST_BYTEWISE
-	const char hist_read_byte = 0x00;
+	const u8 hist_read_byte = 0x00;
 	for (int i = 0; i < HIST_LENGTH; i++) {
 		spi_transfer(spi_device, &hist_read_byte, &vals[i], 1);
 		delay_us(4);    // Delay for 4 microseconds
 	}
 #else   // HIST_BYTEWISE
-	const char cmd_bytes[HIST_LENGTH] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
+	const u8 cmd_bytes[HIST_LENGTH] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 										0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 										0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
 										0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -361,7 +364,7 @@ void read_histogram(struct HistogramData* data) {  //, int convert_to_conc) {
 void pack_byte_pairs(struct PMData* pm_data, byte_pair_t* pm1_lo, byte_pair_t* pm1_hi, 
 											 byte_pair_t* pm25_lo, byte_pair_t* pm25_hi, 
 											 byte_pair_t* pm10_lo, byte_pair_t* pm10_hi) {
-	uint8_t pm1_byte, pm25_byte, pm10_byte;
+	u8 pm1_byte, pm25_byte, pm10_byte;
 	for (int i = 0; i < 4; i++) {
 		pm1_byte  = pm_data->pm1[i];
 		pm25_byte = pm_data->pm25[i];
@@ -380,6 +383,18 @@ void pack_byte_pairs(struct PMData* pm_data, byte_pair_t* pm1_lo, byte_pair_t* p
 }
 
 // ------------------------------------------------------------------------------------------------
+
+/*	Information regarding the MicroBlaze MAILBOX:
+	- The MicroBlaze core/IOP and the ARM processor can only communicate using a shared memory space called a mailbox
+	- The ARM processor can only write to the shared memory by word (short / 16 bit / 2 byte transfers), 
+		despite long word (32 bit) addressing scheme
+	- The MAILBOX memory is Little Endian
+	- When calling `spi_transfer()` from spi.h, `read_data` cannot be NULL even if the transaction is a write 
+		-- otherwise, subsequent reads will return 0
+	- MAILBOX_CMD_ADDR = 0x0000FFFC 		(see: https://github.com/Xilinx/PYNQ/blob/master/boards/sw_repo/pynqmb/src/circular_buffer.h)
+	- MAILBOX_DATA address = 0x0000F000
+
+**/
 
 int main(void) {
 	u32 cmd;
@@ -447,30 +462,33 @@ int main(void) {
 				MAILBOX_DATA(5) = pm10_hi.val;	// MAILBOX_DATA[5]: PM10 bytes 2 and 3
 
 				// Write histogram bin data to mailbox slots 6..21
-				MAILBOX_DATA(6)  = hist_data.bin0;
-				MAILBOX_DATA(7)  = hist_data.bin1;
-				MAILBOX_DATA(8)  = hist_data.bin2;
-				MAILBOX_DATA(9)  = hist_data.bin3;
-				MAILBOX_DATA(10) = hist_data.bin4;
-				MAILBOX_DATA(11) = hist_data.bin5;
-				MAILBOX_DATA(12) = hist_data.bin6;
-				MAILBOX_DATA(13) = hist_data.bin7;
-				MAILBOX_DATA(14) = hist_data.bin8;
-				MAILBOX_DATA(15) = hist_data.bin9;
-				MAILBOX_DATA(16) = hist_data.bin10;
-				MAILBOX_DATA(17) = hist_data.bin11;
-				MAILBOX_DATA(18) = hist_data.bin12;
-				MAILBOX_DATA(19) = hist_data.bin13;
-				MAILBOX_DATA(20) = hist_data.bin14;
-				MAILBOX_DATA(21) = hist_data.bin15;
+				MAILBOX_DATA(6)  = (u16) hist_data.bin0;
+				MAILBOX_DATA(7)  = (u16) hist_data.bin1;
+				MAILBOX_DATA(8)  = (u16) hist_data.bin2;
+				MAILBOX_DATA(9)  = (u16) hist_data.bin3;
+				MAILBOX_DATA(10) = (u16) hist_data.bin4;
+				MAILBOX_DATA(11) = (u16) hist_data.bin5;
+				MAILBOX_DATA(12) = (u16) hist_data.bin6;
+				MAILBOX_DATA(13) = (u16) hist_data.bin7;
+				MAILBOX_DATA(14) = (u16) hist_data.bin8;
+				MAILBOX_DATA(15) = (u16) hist_data.bin9;
+				MAILBOX_DATA(16) = (u16) hist_data.bin10;
+				MAILBOX_DATA(17) = (u16) hist_data.bin11;
+				MAILBOX_DATA(18) = (u16) hist_data.bin12;
+				MAILBOX_DATA(19) = (u16) hist_data.bin13;
+				MAILBOX_DATA(20) = (u16) hist_data.bin14;
+				MAILBOX_DATA(21) = (u16) hist_data.bin15;
 
 				MAILBOX_CMD_ADDR = 0x0;
 				break;
 
 			case NUM_DEVICES:
-				MAILBOX_DATA(0) = spi_get_num_devices();
+				MAILBOX_DATA(0) = (u16) spi_get_num_devices();
 				MAILBOX_CMD_ADDR = 0x0;
 				break;
+
+			case READ_STATE:
+				MAILBOX_DATA(0) = (u16) state;
 
 			default:
 				MAILBOX_CMD_ADDR = 0x0;
