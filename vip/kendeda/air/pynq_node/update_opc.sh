@@ -42,7 +42,7 @@ pwd
 echo -e "$DIVIDER"
 make
 cd $LIBPATH
-grep "opc.bin" makefile || sed -i 's/BIN_ARDUINO = /BIN_ARDUINO = opc.bin \\ \n\t\t/' makefile
+grep "opc.bin" makefile || sed -i 's/BIN_ARDUINO = /BIN_ARDUINO = opc.bin \\\n\t\t/' makefile
 make
 cd $CWD
 pwd
