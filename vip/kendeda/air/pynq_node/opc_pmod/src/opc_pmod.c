@@ -45,6 +45,9 @@ int state = OFF;	// Assuming device is off to begin with
 #define PM_LENGTH    12
 #define HIST_LENGTH  62
 
+#define OPC_CLK_POLAR 0
+#define OPC_CLK_PHASE 1		// For SPI mode 1
+
 struct PMData {
 	u8 pm1[4];
 	u8 pm25[4];
@@ -88,6 +91,24 @@ typedef union _byte_pair_t
 	u8 b[2];
 	u16 val;
 } byte_pair_t;
+
+// ------------------------------------------------------------------------------------------------
+// Function prototypes
+
+u16 twoBytes2int(u8 LSB, u8 MSB);
+u32 fourBytes2int(u8 val0, u8 val1, u8 val2, u8 val3);
+float fourBytes2float(u8 val0, u8 val1, u8 val2, u8 val3);
+void float2FourBytes(u8 bytes[4], float f);
+
+void device_setup(void);
+int on(void);
+int off(void);
+int close(void);
+void read_pm_data(struct PMData* data);
+void read_histogram(struct HistogramData* data);
+void pack_byte_pairs(struct PMData* pm_data, byte_pair_t* pm1_lo, byte_pair_t* pm1_hi, 
+											 byte_pair_t* pm25_lo, byte_pair_t* pm25_hi, 
+											 byte_pair_t* pm10_lo, byte_pair_t* pm10_hi);
 
 // ------------------------------------------------------------------------------------------------
 
@@ -137,11 +158,8 @@ void float2FourBytes(u8 bytes[4], float f) {
 
 // Setup SPI
 void device_setup() {
-	/*
-	 * Initialize SPIs with clk_polarity and clk_phase as 0
-	 */
 	spi_device = spi_open(SPICLK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);			// Initialize SPI on the PYNQ
-	spi_device = spi_configure(spi_device, 0, 0);
+	spi_device = spi_configure(spi_device, OPC_CLK_PHASE, OPC_CLK_POLAR);
 	delay_us(10000);
 	
 	// For experimental purposes:

@@ -253,4 +253,7 @@ if __name__ == "__main__":
 	if not MOCK_MICROBLAZE:
 		print(">>> Turning the OPC_Pmod off ...")
 		opc.off()
-		print(f">>> Final OPC_Pmod state:  {'OFF' if opc.state == OFF else 'ON'}")
+		# print(f">>> Final OPC_Pmod state:  {'OFF' if opc.state == OFF else 'ON'}")
+		print(">>> Final OPC_Pmod state:", end='  ')
+		sys.stdout.flush()
+		print('OFF' if opc.state == OFF else 'ON')
