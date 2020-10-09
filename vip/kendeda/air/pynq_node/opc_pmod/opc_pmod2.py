@@ -230,16 +230,17 @@ class OPC_Pmod():
 
 		time.sleep(2)
 		print(f"{log_msg_prefix}Invocation of spi_open() returned:  {self.spi}")
+		print(f"{log_msg_prefix}# of SPI devices found:  {self.get_num_devices()}")
+
+		self._pm_dict = {'PM1': 0.0, 'PM2.5': 0.0, 'PM10': 0.0}
+		self._hist_dict = {}
+		self.state = OFF
 
 		if wait:
 			self.wait()
 
 		print(f"{log_msg_prefix}{self.read_info_string()}")
 		print(f"{log_msg_prefix}Serial #:  {self.sn()}")
-
-		self._pm_dict = {'PM1': 0.0, 'PM2.5': 0.0, 'PM10': 0.0}
-		self._hist_dict = {}
-		self.state = OFF
 		print(f"{log_msg_prefix}Initialization complete.")
 
 
@@ -736,7 +737,7 @@ if __name__ == "__main__":
 			try:
 				timestamp = time.asctime(time.localtime())
 				pm = opc.pm()
-				print(f"({timestamp}\t{pm}")
+				print(f"({timestamp}) -- {pm}")
 				print('='*60)
 				time.sleep(SAMPLE_DELAY)
 			except:
@@ -744,8 +745,9 @@ if __name__ == "__main__":
 				break
 	else:
 		for i in range(10):
+			timestamp = time.asctime(time.localtime())
 			pm = opc.pm()
-			print(pm)
+			print(f"({timestamp}) -- {pm}")
 			print('='*60)
 			time.sleep(SAMPLE_DELAY)
 
