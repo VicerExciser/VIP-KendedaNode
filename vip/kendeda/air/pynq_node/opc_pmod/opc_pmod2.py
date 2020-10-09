@@ -21,6 +21,7 @@ MOCK_MICROBLAZE = False
 USE_RF2_PIN_SCHEME = False
 HACKY_PING = False
 RUN_FAN_POWER_TEST = False
+INFINITE_POLL = False
 
 LIB_PATH_PREFIX = "/home/xilinx/pynq/lib/pmod"
 # OPC_PROGRAM = "opc_pmod.bin"
@@ -730,11 +731,23 @@ if __name__ == "__main__":
 	if RUN_FAN_POWER_TEST:
 		fan_power_test(opc)
 
-	for i in range(10):
-		pm = opc.pm()
-		print(pm)
-		print('='*60)
-		time.sleep(SAMPLE_DELAY)
+	if INFINITE_POLL:
+		while True:
+			try:
+				timestamp = time.asctime(time.localtime())
+				pm = opc.pm()
+				print(f"({timestamp}\t{pm}")
+				print('='*60)
+				time.sleep(SAMPLE_DELAY)
+			except:
+				print(f">>> [{timestamp}] {__file__} TERMINATED FROM MAIN LOOP")
+				break
+	else:
+		for i in range(10):
+			pm = opc.pm()
+			print(pm)
+			print('='*60)
+			time.sleep(SAMPLE_DELAY)
 
 	if not MOCK_MICROBLAZE:
 		print(">>> Turning the OPC_Pmod off ...")
