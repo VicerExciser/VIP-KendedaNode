@@ -42,12 +42,9 @@ def shorts2float(lo_byte_pair, hi_byte_pair):
 ## ==================================================================
 
 class OPC_Pmod():
-	def __init__(self, pmod_ab='A', overlay=None, mb_info=None):
-		log_msg_prefix = f"[{self.__class__.__name__}] "
-
+	def __init__(self, overlay=None, mb_info=None, pmod_ab='A'):
 		if overlay is None:
-			#print(f"[{__file__.split('/')[-1]}] Downloading BaseOverlay('base.bit')")
-			print(f"{log_msg_prefix}Downloading BaseOverlay('base.bit')")
+			print(f"[{__file__.split('/')[-1]}] Downloading BaseOverlay('base.bit')")
 			overlay = BaseOverlay("base.bit")
 
 		if mb_info is None:
@@ -59,19 +56,17 @@ class OPC_Pmod():
 			if not os.path.exists(bin_location):
 				bin_location = os.path.join(LIB_PATH_PREFIX, "opc", OPC_PROGRAM)
 				if not os.path.exists(bin_location):
-					#print(f"\n[{__file__.split('/')[-1]}] ERROR: Could not locate program file '{OPC_PROGRAM}' -- aborting.\n")
-					print(f"\n{log_msg_prefix}ERROR: Could not locate program file '{OPC_PROGRAM}' -- aborting.\n")
+					print(f"\n[{__file__.split('/')[-1]}] ERROR: Could not locate program file '{OPC_PROGRAM}' -- aborting.\n")
 					sys.exit(1)
-		#print(f"[{__file__.split('/')[-1]}] MicroBlaze program filepath:  '{bin_location}'\n")
-		print(f"{log_msg_prefix}MicroBlaze program filepath:  '{bin_location}'\n")
+		print(f"[{__file__.split('/')[-1]}] MicroBlaze program filepath:  '{bin_location}'\n")
 
-		## See:  https://github.com/Xilinx/PYNQ/blob/master/pynq/lib/pmod/pmod.py
-		#print("(in __init__: invoking pynq.lib.pmod.Pmod constructor)")
+		## See:  https://github.com/Xilinx/PYNQ/blob/master/pynq/lib/arduino/arduino.py
+		print("(in __init__: invoking pynq.lib.pmod.Pmod constructor)")
 		self.microblaze = Pmod(mb_info, OPC_PROGRAM) if not MOCK_MICROBLAZE else None
-		#print("(in __init__: returned from pynq.lib.pmod.Pmod constructor)")
+		print("(in __init__: returned from pynq.lib.pmod.Pmod constructor)")
 
-		#print(f"[{__file__.split('/')[-1]}] Number of SPI devices found:  ")  #, end='')
-		#print(self.get_num_devices())
+		print(f"[{__file__.split('/')[-1]}] Number of SPI devices found:  ")  #, end='')
+		print(self.get_num_devices())
 
 		self.pm = {"PM1": 0.0, "PM2.5": 0.0, "PM10": 0.0}
 		self.hist = {}
@@ -233,17 +228,11 @@ if __name__ == "__main__":
 	print(">>> Instantiating OPC_Pmod object ...")
 	opc = OPC_Pmod()
 	if not MOCK_MICROBLAZE:
-		#print(f">>> Initial OPC_Pmod state:  {'OFF' if opc.state == OFF else 'ON'}")
-		print(">>> Initial OPC_Pmod state:", end='  ')
-		sys.stdout.flush()
-		print('OFF' if opc.state == OFF else 'ON')
+		print(f">>> Initial OPC_Pmod state:  {'OFF' if opc.state == OFF else 'ON'}")
 		print(">>> Turning the OPC_Pmod on ...")
 		opc.on()
 		time.sleep(4)
-		#print(f">>> New OPC_Pmod state:  {'OFF' if opc.state == OFF else 'ON'}")
-		print(">>> New OPC_Pmod state:", end='  ')
-		sys.stdout.flush()
-		print('OFF' if opc.state == OFF else 'ON')
+		print(f">>> New OPC_Pmod state:  {'OFF' if opc.state == OFF else 'ON'}")
 	print('='*60, end='\n\n')
 	for i in range(10):
 		pm = opc.read_pm()  #if not TESTING else opc._test_read_pm()
