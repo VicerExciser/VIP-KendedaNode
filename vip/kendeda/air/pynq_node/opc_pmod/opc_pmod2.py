@@ -20,7 +20,7 @@ TESTING = False			## If True, will only run the OPC '_test_*' functions
 MOCK_MICROBLAZE = False
 USE_RF2_PIN_SCHEME = False
 HACKY_PING = False
-RUN_FAN_POWER_TEST = True
+RUN_FAN_POWER_TEST = False
 
 LIB_PATH_PREFIX = "/home/xilinx/pynq/lib/pmod"
 # OPC_PROGRAM = "opc_pmod.bin"
@@ -54,25 +54,25 @@ else:
 	MOSI_PIN = 1
 	SS_PIN   = 0
 
-CONFIG_IOP_SWITCH = 0x1
-OPC_ON            = 0x3
-OPC_OFF           = 0x5
-OPC_CLOSE         = 0x7
-READ_PM           = 0x9
-READ_HIST         = 0xB
-NUM_DEVICES       = 0xD
-READ_STATE        = 0xF
+# CONFIG_IOP_SWITCH = 0x1
+# OPC_ON            = 0x3
+# OPC_OFF           = 0x5
+# OPC_CLOSE         = 0x7
+# READ_PM           = 0x9
+# READ_HIST         = 0xB
+# NUM_DEVICES       = 0xD
+# READ_STATE        = 0xF
 
-command_byte = {
-	"ON" : 0x0C,
-	"OFF" : 0x03,
-	"PING" : 0xCF,
-	"PM" : 0x32,
-	"HIST" : 0x30,
-	"FIRM" : 0x12,
-	"SN" : 0x10, 	## sn()
-	"FAN" : 0x42,	## set_fan_power(power)
-}
+# command_byte = {
+# 	"ON" : 0x0C,
+# 	"OFF" : 0x03,
+# 	"PING" : 0xCF,
+# 	"PM" : 0x32,
+# 	"HIST" : 0x30,
+# 	"FIRM" : 0x12,
+# 	"SN" : 0x10, 	## sn()
+# 	"FAN" : 0x42,	## set_fan_power(power)
+# }
 
 ## ==================================================================
 
@@ -135,18 +135,25 @@ def _calculate_float(byte_array):
 	"""
 	if len(byte_array) != 4:
 		return None
+
+	'''
+	msg_prefix = "[_calculate_float] "
+	print(f"{msg_prefix}byte_array = {[hex(b) for b in byte_array]}")
 	
-	if OPC_BIT_ORDER == MB_BIT_ORDER:
-		pack_fstr = '4B'
-		# unpack_fstr = 'f'
-	else:
-		if OPC_BIT_ORDER == LSBFIRST:  ## Little endian
-			pack_fstr = '<4B'
-		else: 	## Big endian
-			pack_fstr = '>4B'
-		
-	# f = struct.unpack('f', struct.pack('4B', *byte_array))[0]
-	f = struct.unpack('f', struct.pack(pack_fstr, *byte_array))[0]
+	# if OPC_BIT_ORDER == MB_BIT_ORDER:
+	pack_fstr = '4B'
+	print(f" -->  Using '{pack_fstr}' as pack_str: f = {round(struct.unpack('f', struct.pack(pack_fstr, *byte_array))[0], 5)}")
+	# else:
+	# 	if OPC_BIT_ORDER == LSBFIRST:  ## Little endian
+	pack_fstr = '<4B'
+	print(f" -->  Using '{pack_fstr}' as pack_str: f = {round(struct.unpack('f', struct.pack(pack_fstr, *byte_array))[0], 5)}")
+		# else: 	## Big endian
+	pack_fstr = '>4B'
+	print(f" -->  Using '{pack_fstr}' as pack_str: f = {round(struct.unpack('f', struct.pack(pack_fstr, *byte_array))[0], 5)}")
+	'''
+
+	f = struct.unpack('f', struct.pack('4B', *byte_array))[0]
+	# f = struct.unpack('f', struct.pack(pack_fstr, *byte_array))[0]
 	return round(f, 5)
 
 
@@ -157,7 +164,6 @@ def _calculate_mtof(mtof):
 	:type mtof: float
 	:rtype: float
 	"""
-	# return mtof / 3.0
 	return round((mtof / 3.0), 4)
 
 
@@ -185,7 +191,7 @@ def _calculate_pressure(vals):
 
 
 def _calculate_period(vals):
-	''' calculate the sampling period in seconds '''
+	"""Calculate the sampling period in seconds"""
 	if len(vals) < 4:
 		return None
 	# if self.firmware['major'] < 16:
@@ -196,7 +202,7 @@ def _calculate_period(vals):
 ## ==================================================================
 
 class OPC_Pmod():
-	def __init__(self, pmod_ab='A', overlay=None, mb_info=None):
+	def __init__(self, pmod_ab='A', overlay=None, mb_info=None, wait=False):
 		log_msg_prefix = f"[{self.__class__.__name__}] "
 
 		if overlay is None:
@@ -224,11 +230,16 @@ class OPC_Pmod():
 		time.sleep(2)
 		print(f"{log_msg_prefix}Invocation of spi_open() returned:  {self.spi}")
 
+		if wait:
+			self.wait()
+
+		print(f"{log_msg_prefix}{self.read_info_string()}")
+		print(f"{log_msg_prefix}Serial #:  {self.sn()}")
+
 		self._pm_dict = {'PM1': 0.0, 'PM2.5': 0.0, 'PM10': 0.0}
 		self._hist_dict = {}
 		self.state = OFF
 		print(f"{log_msg_prefix}Initialization complete.")
-
 
 
 	def on(self):
@@ -291,6 +302,33 @@ class OPC_Pmod():
 					print("ERROR -- command failed.")
 
 		return self.state == OFF 
+
+
+	def wait(self, **kwargs):
+		"""Wait for the OPC to prepare itself for data transmission. On some devides this can take a few seconds
+		:rtype: self
+		:Example:
+		>> alpha = OPC_Pmod().wait(check=200)
+		"""
+
+		if not callable(self.on):
+			raise UserWarning('Your device does not support the self.on function, try without wait')
+
+		if not callable(self.histogram):
+			raise UserWarning('Your device does not support the self.histogram function, try without wait')
+
+		self.on()
+		while True:
+			try:
+				if self.histogram() is None:
+					raise UserWarning('Could not load histogram, perhaps the device is not yet connected')
+				else:
+					break
+
+			except UserWarning as e:
+				time.sleep(kwargs.get('check', 200) / 1000.)
+
+		return self
 
 
 	def reset(self):
@@ -485,7 +523,6 @@ class OPC_Pmod():
 			self._hist_dict['bin15'] /= _conv_
 
 		time.sleep(0.1)
-
 		return self._hist_dict 
 
 
@@ -494,44 +531,71 @@ class OPC_Pmod():
 
 		:rtype: Boolean
 		"""
-		## [FIXED -- IGNORE] The following code only works on the RPi, as the Microblaze can only accept byte values between -128 and 127 (so 0xCF is too large)
-		if not HACKY_PING:	
-			rb = [0x00]
+		## NOTE: the Microblaze can only accept byte values between -128 and 127 (so 0xCF is too large)
+		rb = [0x00]
 
-			# self.spi.transfer([0xCF], rb, 1)
-			# mapped_cmd_byte = [_map_value(0xCF, 0, 255, -128, 127)]
-			mapped_cmd_byte = [0xCF-128]
-			self.spi.transfer(mapped_cmd_byte, rb, 1)
+		# self.spi.transfer([0xCF], rb, 1)
+		# mapped_cmd_byte = [_map_value(0xCF, 0, 255, -128, 127)]
+		mapped_cmd_byte = [0xCF-128]
+		self.spi.transfer(mapped_cmd_byte, rb, 1)
 
-			time.sleep(0.1)
-			if rb[0] < 0: 						## Account for implicit unsigned-to-signed 
-				rb[0] += 256					## conversion from the transfer operation
-			return rb[0] == 0xF3
-		
-		# if HACKY_PING:
-		## Instead, for the PYNQ, a hacky workaround to ensure that the device is receiving commands correctly
-		checks = [self.get_num_devices() > 0]
-		if self.state == OFF:
-			toggle_state = self.on
-			restore_state = self.off
-		else:
-			toggle_state = self.off
-			restore_state = self.on
-		checks.append(toggle_state())
-		time.sleep(2)
-		checks.append(restore_state())
-		time.sleep(2)
-		return all(checks)
+		time.sleep(0.1)
+		if rb[0] < 0: 						## Account for implicit unsigned-to-signed 
+			rb[0] += 256					## conversion from the transfer operation
+		return rb[0] == 0xF3
 
 
 	def sn(self):
-		## TODO
-		return None 
+		"""Read the Serial Number string. This method is only available on OPC-N2
+        firmware versions 18+.
 
+        :rtype: string
+
+        :Example:
+
+        >>> alpha.sn()
+        'OPC-N2 123456789'
+        """
+		string = []
+		resp = [0x00]
+		self.spi.transfer([0x10], [0x00], 1)
+		time.sleep(9e-3)
+		for i in range(60):
+			self.spi.transfer([0x00], resp, 1)
+			string.append(chr(resp[0]))
+		time.sleep(0.1)
+		return ''.join(string).strip()
+
+
+	def read_info_string(self):
+		"""Reads the information string for the OPC
+
+		:rtype: string
+
+		:Example:
+
+		>>> alpha.read_info_string()
+		'OPC-N2 FirmwareVer=OPC-018.2....................BD'
+		"""
+		infostring = []
+
+		## Send the command byte and sleep for 9 ms
+		self.spi.transfer([0x3F], [0x00], 1)
+		time.sleep(9e-3)
+
+		## Read the info string by sending 60 empty bytes
+		for i in range(60):
+			resp = [0x00]
+			self.spi.transfer([0x00], resp, 1)
+			infostring.append(chr(resp[0]))
+
+		time.sleep(0.1)
+		return ''.join(infostring).strip()
+
+	
 	def firmware_version(self):
-		## TODO
-		return None 
-
+		info = self.read_info_string()
+		return info[info.index('FirmwareVer='):info.index('...')]
 
 
 	def set_fan_power(self, power):
