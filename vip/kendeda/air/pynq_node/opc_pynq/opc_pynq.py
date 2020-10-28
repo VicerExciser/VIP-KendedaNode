@@ -359,24 +359,32 @@ class _OPC_Base:
 		}
 		"""
 
-		resp = []
-		self.spi.transfer([0x32], [0x00], 1)		## Send the command byte
-		time.sleep(10e-3) 						## Wait 10 ms
+		self._pm_dict = dict.fromkeys(self._pm_dict, 0.0)		## Initialize all PM values to 0
+		read_attempts = 0
 
-		## Read the 12 bytes of PM data from the histogram
-		for i in range(12):
-			rb = [0x00]
-			self.spi.transfer([0x00], rb, 1)
-			if rb[0] < 0:
-				rb[0] += 256
-			resp.append(rb[0])
+		while not any(self._pm_dict.values()):		## First read always returns all zeros; try again until good data is read 
+			resp = []
+			self.spi.transfer([0x32], [0x00], 1)	## Send the command byte
+			time.sleep(10e-3) 						## Wait 10 ms
 
-		## Make conversions to floats & store PM values
-		self._pm_dict['PM1']   = _calculate_float(resp[:4])
-		self._pm_dict['PM2.5'] = _calculate_float(resp[4:8])
-		self._pm_dict['PM10']  = _calculate_float(resp[8:])
+			## Read the 12 bytes of PM data from the histogram
+			for i in range(12):
+				rb = [0x00]
+				self.spi.transfer([0x00], rb, 1)
+				if rb[0] < 0:
+					rb[0] += 256
+				resp.append(rb[0])
 
-		time.sleep(0.1)
+			## Make conversions to floats & store PM values
+			self._pm_dict['PM1']   = _calculate_float(resp[:4])
+			self._pm_dict['PM2.5'] = _calculate_float(resp[4:8])
+			self._pm_dict['PM10']  = _calculate_float(resp[8:])
+
+			time.sleep(0.1)
+			read_attempts += 1
+			if read_attempts == MAX_RETRIES:
+				break
+			
 		return self._pm_dict
 
 
