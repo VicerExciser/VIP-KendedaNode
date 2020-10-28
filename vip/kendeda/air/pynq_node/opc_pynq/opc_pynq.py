@@ -39,6 +39,26 @@ MOCK_MICROBLAZE = False
 RUN_FAN_POWER_TEST = False
 INFINITE_POLL = False
 
+## Default Arduino header pin assignments for SPI connection
+ARDUINO_SCLK_PIN = 13
+ARDUINO_MISO_PIN = 12
+ARDUINO_MOSI_PIN = 11
+ARDUINO_SS_PIN   = 10
+
+## Default Pmod pin numbers for SPI connections to the OPC-N2 device
+PMOD_SCLK_PIN = 1
+PMOD_MISO_PIN = 0
+PMOD_MOSI_PIN = 4
+PMOD_SS_PIN   = 5
+"""
+///////////////////////////////////////////////////////////////
+// NOTE: Only Pmod pins 0, 1, 4, & 5 have internal pull-down resistors to support SPI
+// The index of the Pmod pins:
+//    upper row, from left to right: {vdd,gnd,3,2,1,0}.
+//    lower row, from left to right: {vdd,gnd,7,6,5,4}.
+///////////////////////////////////////////////////////////////
+"""
+
 OFF = 0
 ON  = 1
 MAX_RETRIES = 4
@@ -205,7 +225,8 @@ class _OPC_Base:
 				rb0[0] += 256					## conversion from the transfer operation
 
 			attempts += 1
-			self.log(self.log_msg_prefix, '', end='')
+			if hasattr(self, 'log_msg_prefix'):
+				self.log(self.log_msg_prefix, '', end='')
 			if rb0[0] == 0xF3 and rb1[0] == 0x03: 	## Ensure response values are as expected
 				self.state = ON 
 				print("SUCCESS -- device powered on.")
@@ -237,7 +258,8 @@ class _OPC_Base:
 				rb0[0] += 256					## conversion from the transfer operation
 
 			attempts += 1
-			self.log(self.log_msg_prefix, '', end='')
+			if hasattr(self, 'log_msg_prefix'):
+				self.log(self.log_msg_prefix, '', end='')
 			if rb0[0] == 0xF3 and rb1[0] == 0x03: 	## Ensure response values are as expected
 				self.state = OFF 
 				print("SUCCESS -- device powered off.")
@@ -561,7 +583,6 @@ class _OPC_Base:
 		## Send the next 2 bytes to set the fan power level
 		self.spi.transfer([0x00], rb1, 1)
 
-		# self.spi.transfer([power], rb2, 1)
 		self.spi.transfer(mapped_pval, rb2, 1)
 		time.sleep(0.1)
 
@@ -572,7 +593,9 @@ class _OPC_Base:
 
 		success = (rb0[0] == 0xF3) and (rb1[0] == 0x42) and (rb2[0] == 0x00)
 
-		self.log(self.log_msg_prefix, '', end=' ')
+		if hasattr(self, 'log_msg_prefix'):
+			self.log(self.log_msg_prefix, '', end=' ')
+
 		if success:
 			print(f"Fan power level set to {power}  ({mapped_pval[0]})")
 		else:
@@ -599,7 +622,9 @@ class _OPC_Base:
 
 		success = (rb0[0] == 0xF3) and (rb1[0] == 0x03)
 
-		self.log(self.log_msg_prefix, '', end=' ')
+		if hasattr(self, 'log_msg_prefix'):
+			self.log(self.log_msg_prefix, '', end=' ')
+			
 		if success:
 			print(f"Fan toggled to {'OFF' if state == OFF else 'ON'}")
 		else:
@@ -629,21 +654,30 @@ class OPC_Pmod(_OPC_Base):
 		- toggle_fan(self, state)
 	"""
 
-	PMOD_SCLK_PIN = 1
-	PMOD_MISO_PIN = 0
-	PMOD_MOSI_PIN = 4
-	PMOD_SS_PIN   = 5
-
-	def __init__(self, pmod_ab='A', overlay=None, mb_info=None, wait=False):
+	def __init__(self, pmod_ab='A', overlay=None, mb_info=None, wait=False,
+							sclk_pin=PMOD_SCLK_PIN, miso_pin=PMOD_MISO_PIN, 
+								mosi_pin=PMOD_MOSI_PIN, ss_pin=PMOD_SS_PIN):
 		super().__init__(overlay)
 
 		self.log_msg_prefix = f"[{self.__class__.__name__}] "
+
+		## Verify that all pin assignments are unique and valid
+		pins = (sclk_pin, miso_pin, mosi_pin, ss_pin)
+		if len(pins) != len(set(pins)):
+			raise ValueError("Cannot assign same pin more than once.")
+		if any([pin not in (0, 1, 4, 5) for pin in pins]):
+			raise ValueError("Supported Pmod pins for SPI are (0, 1, 4, 5).")
+
+		self.sclk = sclk_pin
+		self.miso = miso_pin
+		self.mosi = mosi_pin
+		self.ss = ss_pin
 
 		if mb_info is None:
 			mb_info = self._overlay.iop_pmoda if pmod_ab.upper() == 'A' else self._overlay.iop_pmodb
 
 		self._lib = MicroblazeLibrary(mb_info, ['spi'])
-		self.spi = self._lib.spi_open(self.PMOD_SCLK_PIN, self.PMOD_MISO_PIN, self.PMOD_MOSI_PIN, self.PMOD_SS_PIN)
+		self.spi = self._lib.spi_open(self.sclk, self.miso, self.mosi, self.ss)
 		""" 
 			^ Methods for the `spi` object:
 				- configure(self, clk_phase, clk_polarity)
@@ -691,11 +725,6 @@ class OPC_Arduino(_OPC_Base):
 		- toggle_fan(self, state)
 	"""
 
-	ARDUINO_SCLK_PIN = 13
-	ARDUINO_MISO_PIN = 12
-	ARDUINO_MOSI_PIN = 11
-	ARDUINO_SS_PIN   = 10
-
 	def __init__(self, overlay=None, mb_info=None, wait=False):
 		super().__init__(overlay)
 
@@ -705,7 +734,7 @@ class OPC_Arduino(_OPC_Base):
 			mb_info = self._overlay.iop_arduino
 
 		self._lib = MicroblazeLibrary(mb_info, ['spi'])
-		self.spi = self._lib.spi_open(self.ARDUINO_SCLK_PIN, self.ARDUINO_MISO_PIN, self.ARDUINO_MOSI_PIN, self.ARDUINO_SS_PIN)
+		self.spi = self._lib.spi_open(ARDUINO_SCLK_PIN, ARDUINO_MISO_PIN, ARDUINO_MOSI_PIN, ARDUINO_SS_PIN)
 		""" 
 			^ Methods for the `spi` object:
 				- configure(self, clk_phase, clk_polarity)
