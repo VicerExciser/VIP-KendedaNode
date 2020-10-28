@@ -60,297 +60,6 @@ FP_PRECISION = 5
 
 ## ==================================================================
 
-class OPC_Pmod(_OPC_Base):
-	""" 
-	Methods inherited from _OPC_Base:
-		- log(self, prefix, msg, end='\n')
-		- on(self, force=False)
-		- off(self, force=False)
-		- wait(self, **kwargs)
-		- reset(self, force=False)
-		- close(self, force=False)
-		- pm(self)
-		- histogram(self, number_concentration=True)
-		- ping(self)
-		- sn(self)
-		- read_info_string(self)
-		- firmware_version(self)
-		- set_fan_power(self, power)
-		- toggle_fan(self, state)
-	"""
-
-	PMOD_SCLK_PIN = 1
-	PMOD_MISO_PIN = 0
-	PMOD_MOSI_PIN = 4
-	PMOD_SS_PIN   = 5
-
-	def __init__(self, pmod_ab='A', overlay=None, mb_info=None, wait=False):
-		super().__init__(overlay)
-
-		self.log_msg_prefix = f"[{self.__class__.__name__}] "
-
-		if mb_info is None:
-			mb_info = self._overlay.iop_pmoda if pmod_ab.upper() == 'A' else self._overlay.iop_pmodb
-
-		self._lib = MicroblazeLibrary(mb_info, ['spi'])
-		self.spi = self._lib.spi_open(self.PMOD_SCLK_PIN, self.PMOD_MISO_PIN, self.PMOD_MOSI_PIN, self.PMOD_SS_PIN)
-		""" 
-			^ Methods for the `spi` object:
-				- configure(self, clk_phase, clk_polarity)
-				- transfer(self, [write_data], [read_data], length)
-				- get_num_devices(self)
-				- open(self)
-				- open_device(self)
-				- close(self)
-		"""
-
-		# lib.spi_configure(spi, OPC_CLK_PHASE, OPC_CLK_POLAR)
-		self.spi.configure(OPC_CLK_PHASE, OPC_CLK_POLAR)	 ## ^ Should be equivalent to the above command
-
-		time.sleep(2)
-		self.log(self.log_msg_prefix, f"Invocation of spi_open() returned:  {self.spi}")
-		self.log(self.log_msg_prefix, f"# of SPI devices found:  {self.get_num_devices()}")
-
-		if wait:
-			self.wait()
-
-		self.log(self.log_msg_prefix, f"{self.read_info_string()}")
-		self.log(self.log_msg_prefix, f"Serial #:  {self.sn()}")
-		assert self.off(force=True)
-		self.log(self.log_msg_prefix, "Initialization complete.")
-
-
-## ==================================================================
-
-class OPC_Arduino(_OPC_Base):
-	""" 
-	Methods inherited from _OPC_Base:
-		- log(self, prefix, msg, end='\n')
-		- on(self, force=False)
-		- off(self, force=False)
-		- wait(self, **kwargs)
-		- reset(self, force=False)
-		- close(self, force=False)
-		- pm(self)
-		- histogram(self, number_concentration=True)
-		- ping(self)
-		- sn(self)
-		- read_info_string(self)
-		- firmware_version(self)
-		- set_fan_power(self, power)
-		- toggle_fan(self, state)
-	"""
-
-	ARDUINO_SCLK_PIN = 13
-	ARDUINO_MISO_PIN = 12
-	ARDUINO_MOSI_PIN = 11
-	ARDUINO_SS_PIN   = 10
-
-	def __init__(self, overlay=None, mb_info=None, wait=False):
-		super().__init__(overlay)
-
-		self.log_msg_prefix = f"[{self.__class__.__name__}] "
-
-		if mb_info is None:
-			mb_info = self._overlay.iop_arduino
-
-		self._lib = MicroblazeLibrary(mb_info, ['spi'])
-		self.spi = self._lib.spi_open(self.ARDUINO_SCLK_PIN, self.ARDUINO_MISO_PIN, self.ARDUINO_MOSI_PIN, self.ARDUINO_SS_PIN)
-		""" 
-			^ Methods for the `spi` object:
-				- configure(self, clk_phase, clk_polarity)
-				- transfer(self, [write_data], [read_data], length)
-				- get_num_devices(self)
-				- open(self)
-				- open_device(self)
-				- close(self)
-		"""
-
-		# lib.spi_configure(spi, OPC_CLK_PHASE, OPC_CLK_POLAR)
-		self.spi.configure(OPC_CLK_PHASE, OPC_CLK_POLAR)	 ## ^ Should be equivalent to the above command
-
-		time.sleep(2)
-		self.log(self.log_msg_prefix, f"Invocation of spi_open() returned:  {self.spi}")
-		self.log(self.log_msg_prefix, f"# of SPI devices found:  {self.get_num_devices()}")
-
-		if wait:
-			self.wait()
-
-		self.log(self.log_msg_prefix, f"{self.read_info_string()}")
-		self.log(self.log_msg_prefix, f"Serial #:  {self.sn()}")
-		assert self.off(force=True)
-		self.log(self.log_msg_prefix, "Initialization complete.")
-
-
-## ==================================================================
-
-class OPC_USB(_OPC_Base):
-
-	def __init__(self, overlay=None, port="/dev/ttyACM0", wait=False):
-		super().__init__(overlay=overlay)
-		self.log_msg_prefix = f"[{self.__class__.__name__}] "
-
-		import opc      ## Pypi package name:  py-opc
-		from opc.exceptions import FirmwareVersionError
-		from usbiss.spi import SPI
-		self.port = port
-		self.spi = SPI(self.port)
-
-		 ## Set the SPI mode and clock speed
-		self.spi.mode = 1
-		self.spi.max_speed_hz = OPC_CLK_SPEED
-		self._prev_pm = None
-		self._last_read_time = 0
-		self._opcn2 = None
-		spi_err_cnt = 0
-
-		original_stdout = sys.stdout 
-		sys.stdout = open('/dev/null', 'w')
-		while self._opcn2 is None and spi_err_cnt < 5:
-			try:
-				self._opcn2 = opc.OPCN2(self.spi)
-			except FirmwareVersionError as fve:
-				spi_err_cnt += 1
-				print("[OPC_N2] FirmwareVersionError #{} caught, check power supply ...".format(spi_err_cnt))
-				print("\t{0}: {1}".format(type(fve).__name__, fve))
-				time.sleep(1)
-			except IndexError as ie:
-				spi_err_cnt += 1
-				print("[OPC_N2] py-opc incurred an IndexError, ignoring ...")
-				print("\t{0}: {1}".format(type(ie).__name__, ie))
-				time.sleep(0.5)
-		sys.stdout = original_stdout
-
-		time.sleep(1)
-		# if self._opcn2:
-		# 	self.log(self.log_msg_prefix, f"USB Optical Particle Counter initialized ({self.port}) after {spi_err_cnt+1} attempts.")
-		# else:
-		if self._opcn2 is None:
-			raise ValueError(f"\n{self.log_msg_prefix} ERROR: INIT FAILED AFTER {spi_err_cnt+1} ATTEMPTS (SPI bus error for {self.port})\n")
-		
-		if wait:
-			self.wait()
-
-		self.log(self.log_msg_prefix, f"{self.read_info_string()}")
-		self.log(self.log_msg_prefix, f"Serial #:  {self.sn()}")
-		self.log(self.log_msg_prefix, f"Port:  {self.port}")
-		assert self.off(force=True)
-		self.log(self.log_msg_prefix, f"Initialization complete after {spi_err_cnt+1} attempts.")
-
-		
-	## Overriden method
-	def on(self, force=False):
-		if force:
-			self.state = OFF 
-		if self.state == OFF:
-			self._opcn2.on()
-			self.state = ON
-			time.sleep(3)    ## Give it some time to warm up
-		if self.state == ON:
-			self.log(self.log_msg_prefix, "SUCCESS -- device powered on.")
-			return True
-		self.log(self.log_msg_prefix, "ERROR -- command failed.")
-		return False
-
-	## Overriden method
-	def off(self, force=False):
-		if force:
-			self.state = ON 
-		if self.state == ON:
-			self._opcn2.off()
-			self.state = OFF
-			time.sleep(1)
-		if self.state == OFF:
-			self.log(self.log_msg_prefix, "SUCCESS -- device powered off.")
-			return True
-		self.log(self.log_msg_prefix, "ERROR -- command failed.")
-		return False
-
-
-	# def wait(self, **kwargs):     ## <-- Allowing instead the invocation of parent's wait() method
-	# def reset(self, force=False): ## <-- Allowing instead the invocation of parent's reset() method
-	# def close(self, force=False): ## <-- Allowing instead the invocation of parent's close() method
-	# def firmware_version(self):   ## <-- Allowing instead the invocation of parent's firmware_version() method
-
-
-	## Overriden method
-	def get_num_devices(self):
-		return 1
-
-
-	## Overriden method
-	def ping(self):
-		return self._opcn2.ping()
-
-
-	## Overriden method
-	def sn(self):
-		return self._opcn2.sn().strip()
-
-
-	## Overriden method
-	def read_info_string(self):
-		return self._opcn2.read_info_string()
-
-
-	## Overriden method
-	def set_fan_power(self, power):
-		return self._opcn2.set_fan_power(power)
-
-	
-	## Overriden method
-	def toggle_fan(self, state):
-		return self._opcn2.toggle_fan(state)
-
-
-	## Overriden method
-	def pm(self):
-		""" 
-		Returns a dict of the format {'PM1': x, 'PM10': y, 'PM2.5': z} 
-		Particular matter density concentration units: num. of particles per cubic centimeter (#/cc).
-		"""
-		if self._prev_pm is not None and (time.time() - self._last_read_time) < 2:
-			return self._prev_pm
-			
-		# self.on()    ## Ensure device is on before attempting a read operation
-		pm = self._opcn2.pm()
-		pm_err_cnt = 0
-		while not any(pm.values()):
-			if pm_err_cnt > 4:
-				break
-			pm = self._opcn2.pm()
-			pm_err_cnt += 1
-		for key in pm.keys():
-			pm[key] = round(pm[key], FP_PRECISION)
-		self._prev_pm = pm
-		self._last_read_time = time.time()
-
-		# self._pm_dict = pm
-		self._pm_dict['PM1']   = round(pm.get('PM1'), FP_PRECISION)
-		self._pm_dict['PM2.5'] = round(pm.get('PM2.5'), FP_PRECISION)
-		self._pm_dict['PM10']  = round(pm.get('PM10'), FP_PRECISION)
-		time.sleep(0.1)
-		return self._pm_dict
-
-
-	## Overriden method
-	def histogram(self, number_concentration=True):
-		# self.on()    ## Ensure device is on before attempting a read operation
-		hist = self._opcn2.histogram(number_concentration=number_concentration)
-		self._hist_dict = hist
-		self._prev_pm = {   
-						'PM1':round(hist['PM1'], FP_PRECISION), 
-						'PM10':round(hist['PM10'], FP_PRECISION), 
-						'PM2.5':round(hist['PM2.5'], FP_PRECISION)
-						}
-		self._pm_dict = self._prev_pm
-		self._last_read_time = time.time()
-		time.sleep(0.1)
-		return self._hist_dict 
-
-
-## ==================================================================
-
 class _OPC_Base:
 
 	def __init__(self, overlay=None):
@@ -897,6 +606,297 @@ class _OPC_Base:
 			print("ERROR: Failed to toggle OPC fan power")
 
 		return success 
+
+
+## ==================================================================
+
+class OPC_Pmod(_OPC_Base):
+	""" 
+	Methods inherited from _OPC_Base:
+		- log(self, prefix, msg, end='\n')
+		- on(self, force=False)
+		- off(self, force=False)
+		- wait(self, **kwargs)
+		- reset(self, force=False)
+		- close(self, force=False)
+		- pm(self)
+		- histogram(self, number_concentration=True)
+		- ping(self)
+		- sn(self)
+		- read_info_string(self)
+		- firmware_version(self)
+		- set_fan_power(self, power)
+		- toggle_fan(self, state)
+	"""
+
+	PMOD_SCLK_PIN = 1
+	PMOD_MISO_PIN = 0
+	PMOD_MOSI_PIN = 4
+	PMOD_SS_PIN   = 5
+
+	def __init__(self, pmod_ab='A', overlay=None, mb_info=None, wait=False):
+		super().__init__(overlay)
+
+		self.log_msg_prefix = f"[{self.__class__.__name__}] "
+
+		if mb_info is None:
+			mb_info = self._overlay.iop_pmoda if pmod_ab.upper() == 'A' else self._overlay.iop_pmodb
+
+		self._lib = MicroblazeLibrary(mb_info, ['spi'])
+		self.spi = self._lib.spi_open(self.PMOD_SCLK_PIN, self.PMOD_MISO_PIN, self.PMOD_MOSI_PIN, self.PMOD_SS_PIN)
+		""" 
+			^ Methods for the `spi` object:
+				- configure(self, clk_phase, clk_polarity)
+				- transfer(self, [write_data], [read_data], length)
+				- get_num_devices(self)
+				- open(self)
+				- open_device(self)
+				- close(self)
+		"""
+
+		# lib.spi_configure(spi, OPC_CLK_PHASE, OPC_CLK_POLAR)
+		self.spi.configure(OPC_CLK_PHASE, OPC_CLK_POLAR)	 ## ^ Should be equivalent to the above command
+
+		time.sleep(2)
+		self.log(self.log_msg_prefix, f"Invocation of spi_open() returned:  {self.spi}")
+		self.log(self.log_msg_prefix, f"# of SPI devices found:  {self.get_num_devices()}")
+
+		if wait:
+			self.wait()
+
+		self.log(self.log_msg_prefix, f"{self.read_info_string()}")
+		self.log(self.log_msg_prefix, f"Serial #:  {self.sn()}")
+		assert self.off(force=True)
+		self.log(self.log_msg_prefix, "Initialization complete.")
+
+
+## ==================================================================
+
+class OPC_Arduino(_OPC_Base):
+	""" 
+	Methods inherited from _OPC_Base:
+		- log(self, prefix, msg, end='\n')
+		- on(self, force=False)
+		- off(self, force=False)
+		- wait(self, **kwargs)
+		- reset(self, force=False)
+		- close(self, force=False)
+		- pm(self)
+		- histogram(self, number_concentration=True)
+		- ping(self)
+		- sn(self)
+		- read_info_string(self)
+		- firmware_version(self)
+		- set_fan_power(self, power)
+		- toggle_fan(self, state)
+	"""
+
+	ARDUINO_SCLK_PIN = 13
+	ARDUINO_MISO_PIN = 12
+	ARDUINO_MOSI_PIN = 11
+	ARDUINO_SS_PIN   = 10
+
+	def __init__(self, overlay=None, mb_info=None, wait=False):
+		super().__init__(overlay)
+
+		self.log_msg_prefix = f"[{self.__class__.__name__}] "
+
+		if mb_info is None:
+			mb_info = self._overlay.iop_arduino
+
+		self._lib = MicroblazeLibrary(mb_info, ['spi'])
+		self.spi = self._lib.spi_open(self.ARDUINO_SCLK_PIN, self.ARDUINO_MISO_PIN, self.ARDUINO_MOSI_PIN, self.ARDUINO_SS_PIN)
+		""" 
+			^ Methods for the `spi` object:
+				- configure(self, clk_phase, clk_polarity)
+				- transfer(self, [write_data], [read_data], length)
+				- get_num_devices(self)
+				- open(self)
+				- open_device(self)
+				- close(self)
+		"""
+
+		# lib.spi_configure(spi, OPC_CLK_PHASE, OPC_CLK_POLAR)
+		self.spi.configure(OPC_CLK_PHASE, OPC_CLK_POLAR)	 ## ^ Should be equivalent to the above command
+
+		time.sleep(2)
+		self.log(self.log_msg_prefix, f"Invocation of spi_open() returned:  {self.spi}")
+		self.log(self.log_msg_prefix, f"# of SPI devices found:  {self.get_num_devices()}")
+
+		if wait:
+			self.wait()
+
+		self.log(self.log_msg_prefix, f"{self.read_info_string()}")
+		self.log(self.log_msg_prefix, f"Serial #:  {self.sn()}")
+		assert self.off(force=True)
+		self.log(self.log_msg_prefix, "Initialization complete.")
+
+
+## ==================================================================
+
+class OPC_USB(_OPC_Base):
+
+	def __init__(self, overlay=None, port="/dev/ttyACM0", wait=False):
+		super().__init__(overlay=overlay)
+		self.log_msg_prefix = f"[{self.__class__.__name__}] "
+
+		import opc      ## Pypi package name:  py-opc
+		from opc.exceptions import FirmwareVersionError
+		from usbiss.spi import SPI
+		self.port = port
+		self.spi = SPI(self.port)
+
+		 ## Set the SPI mode and clock speed
+		self.spi.mode = 1
+		self.spi.max_speed_hz = OPC_CLK_SPEED
+		self._prev_pm = None
+		self._last_read_time = 0
+		self._opcn2 = None
+		spi_err_cnt = 0
+
+		original_stdout = sys.stdout 
+		sys.stdout = open('/dev/null', 'w')
+		while self._opcn2 is None and spi_err_cnt < 5:
+			try:
+				self._opcn2 = opc.OPCN2(self.spi)
+			except FirmwareVersionError as fve:
+				spi_err_cnt += 1
+				print("[OPC_N2] FirmwareVersionError #{} caught, check power supply ...".format(spi_err_cnt))
+				print("\t{0}: {1}".format(type(fve).__name__, fve))
+				time.sleep(1)
+			except IndexError as ie:
+				spi_err_cnt += 1
+				print("[OPC_N2] py-opc incurred an IndexError, ignoring ...")
+				print("\t{0}: {1}".format(type(ie).__name__, ie))
+				time.sleep(0.5)
+		sys.stdout = original_stdout
+
+		time.sleep(1)
+		# if self._opcn2:
+		# 	self.log(self.log_msg_prefix, f"USB Optical Particle Counter initialized ({self.port}) after {spi_err_cnt+1} attempts.")
+		# else:
+		if self._opcn2 is None:
+			raise ValueError(f"\n{self.log_msg_prefix} ERROR: INIT FAILED AFTER {spi_err_cnt+1} ATTEMPTS (SPI bus error for {self.port})\n")
+		
+		if wait:
+			self.wait()
+
+		self.log(self.log_msg_prefix, f"{self.read_info_string()}")
+		self.log(self.log_msg_prefix, f"Serial #:  {self.sn()}")
+		self.log(self.log_msg_prefix, f"Port:  {self.port}")
+		assert self.off(force=True)
+		self.log(self.log_msg_prefix, f"Initialization complete after {spi_err_cnt+1} attempts.")
+
+		
+	## Overriden method
+	def on(self, force=False):
+		if force:
+			self.state = OFF 
+		if self.state == OFF:
+			self._opcn2.on()
+			self.state = ON
+			time.sleep(3)    ## Give it some time to warm up
+		if self.state == ON:
+			self.log(self.log_msg_prefix, "SUCCESS -- device powered on.")
+			return True
+		self.log(self.log_msg_prefix, "ERROR -- command failed.")
+		return False
+
+	## Overriden method
+	def off(self, force=False):
+		if force:
+			self.state = ON 
+		if self.state == ON:
+			self._opcn2.off()
+			self.state = OFF
+			time.sleep(1)
+		if self.state == OFF:
+			self.log(self.log_msg_prefix, "SUCCESS -- device powered off.")
+			return True
+		self.log(self.log_msg_prefix, "ERROR -- command failed.")
+		return False
+
+
+	# def wait(self, **kwargs):     ## <-- Allowing instead the invocation of parent's wait() method
+	# def reset(self, force=False): ## <-- Allowing instead the invocation of parent's reset() method
+	# def close(self, force=False): ## <-- Allowing instead the invocation of parent's close() method
+	# def firmware_version(self):   ## <-- Allowing instead the invocation of parent's firmware_version() method
+
+
+	## Overriden method
+	def get_num_devices(self):
+		return 1
+
+
+	## Overriden method
+	def ping(self):
+		return self._opcn2.ping()
+
+
+	## Overriden method
+	def sn(self):
+		return self._opcn2.sn().strip()
+
+
+	## Overriden method
+	def read_info_string(self):
+		return self._opcn2.read_info_string()
+
+
+	## Overriden method
+	def set_fan_power(self, power):
+		return self._opcn2.set_fan_power(power)
+
+	
+	## Overriden method
+	def toggle_fan(self, state):
+		return self._opcn2.toggle_fan(state)
+
+
+	## Overriden method
+	def pm(self):
+		""" 
+		Returns a dict of the format {'PM1': x, 'PM10': y, 'PM2.5': z} 
+		Particular matter density concentration units: num. of particles per cubic centimeter (#/cc).
+		"""
+		if self._prev_pm is not None and (time.time() - self._last_read_time) < 2:
+			return self._prev_pm
+			
+		# self.on()    ## Ensure device is on before attempting a read operation
+		pm = self._opcn2.pm()
+		pm_err_cnt = 0
+		while not any(pm.values()):
+			if pm_err_cnt > 4:
+				break
+			pm = self._opcn2.pm()
+			pm_err_cnt += 1
+		for key in pm.keys():
+			pm[key] = round(pm[key], FP_PRECISION)
+		self._prev_pm = pm
+		self._last_read_time = time.time()
+
+		# self._pm_dict = pm
+		self._pm_dict['PM1']   = round(pm.get('PM1'), FP_PRECISION)
+		self._pm_dict['PM2.5'] = round(pm.get('PM2.5'), FP_PRECISION)
+		self._pm_dict['PM10']  = round(pm.get('PM10'), FP_PRECISION)
+		time.sleep(0.1)
+		return self._pm_dict
+
+
+	## Overriden method
+	def histogram(self, number_concentration=True):
+		# self.on()    ## Ensure device is on before attempting a read operation
+		hist = self._opcn2.histogram(number_concentration=number_concentration)
+		self._hist_dict = hist
+		self._prev_pm = {   
+						'PM1':round(hist['PM1'], FP_PRECISION), 
+						'PM10':round(hist['PM10'], FP_PRECISION), 
+						'PM2.5':round(hist['PM2.5'], FP_PRECISION)
+						}
+		self._pm_dict = self._prev_pm
+		self._last_read_time = time.time()
+		time.sleep(0.1)
+		return self._hist_dict 
 
 
 ## ==================================================================
