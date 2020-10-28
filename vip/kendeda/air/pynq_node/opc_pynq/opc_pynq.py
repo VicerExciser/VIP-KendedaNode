@@ -479,7 +479,7 @@ class _OPC_Base:
 
 		## Check that checksum and the least significant bits of the sum of histogram bins are equivilant
 		if (histogram_sum & 0x0000FFFF) != self._hist_dict['checksum']:
-			self.log(self.log_msg_prefix is hasattr(self, 'log_msg_prefix') else '', "CHECKSUM ERROR: Histogram data transfer was incomplete")
+			self.log(self.log_msg_prefix if hasattr(self, 'log_msg_prefix') else '', "CHECKSUM ERROR: Histogram data transfer was incomplete")
 			return None
 
 		## If number_concentration flag is set, convert histogram values to number concentration
