@@ -79,8 +79,114 @@ MB_BIT_ORDER = LSBFIRST
 FP_PRECISION = 5
 
 ## ==================================================================
+## Utility / Helper Functions
+
+def _shorts2float(lo_byte_pair, hi_byte_pair):
+	""" 
+	Takes in 2 unsigned short (integers) and packs their collective
+	4 bytes into a floating point value, then returns that float.
+	"""
+	ba = bytearray(struct.pack("HH", lo_byte_pair, hi_byte_pair))
+	[f] = struct.unpack('f', ba)
+	return f
+
+
+def _compare_arrays(resp, expected):
+	same = functools.reduce(lambda x,y: map(lambda p,q: p == q, resp, expected), True)
+	return same 
+
+
+def _map_value(x, in_min, in_max, out_min, out_max):
+	return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
+
+
+def _translate(value, leftMin, leftMax, rightMin, rightMax):
+	## Figure out how 'wide' each range is
+	leftSpan = leftMax - leftMin
+	rightSpan = rightMax - rightMin
+
+	## Convert the left range into a 0-1 range (float)
+	valueScaled = float(value - leftMin) / float(leftSpan)
+
+	## Convert the 0-1 range into a value in the right range.
+	return int(rightMin + (valueScaled * rightSpan))
+
+
+def _16bit_unsigned(LSB, MSB):
+	"""Returns the combined LSB and MSB
+	:param LSB: Least Significant Byte
+	:param MSB: Most Significant Byte
+	:type LSB: byte
+	:type MSB: byte
+	:rtype: 16-bit unsigned int
+	"""
+	return (MSB << 8) | LSB
+
+
+def _calculate_float(byte_array):
+	"""Returns an IEEE 754 float from an array of 4 bytes
+	:param byte_array: Expects an array of 4 bytes
+	:type byte_array: array
+	:rtype: float
+	"""
+	if len(byte_array) != 4:
+		return None
+	f = struct.unpack('f', struct.pack('4B', *byte_array))[0]
+	return round(f, FP_PRECISION)
+
+
+def _calculate_mtof(mtof):
+	"""Returns the average amount of time that particles in a bin
+	took to cross the path of the laser [units -> microseconds]
+	:param mtof: mass time-of-flight
+	:type mtof: float
+	:rtype: float
+	"""
+	return round((mtof / 3.0), FP_PRECISION)
+
+
+def _calculate_temp(vals):
+	"""Calculates the temperature in degrees celcius
+	:param vals: array of bytes
+	:type vals: array
+	:rtype: float
+	"""
+	if len(vals) < 4:
+		return None
+	t = ((vals[3] << 24) | (vals[2] << 16) | (vals[1] << 8) | vals[0]) / 10.0
+	return round(t, FP_PRECISION)
+
+
+def _calculate_pressure(vals):
+	"""Calculates the pressure in pascals
+	:param vals: array of bytes
+	:type vals: array
+	:rtype: float
+	"""
+	if len(vals) < 4:
+		return None
+	return ((vals[3] << 24) | (vals[2] << 16) | (vals[1] << 8) | vals[0])
+
+
+def _calculate_period(vals):
+	"""Calculate the sampling period in seconds"""
+	if len(vals) < 4:
+		return None
+	# if self.firmware['major'] < 16:
+	# 	return ((vals[3] << 24) | (vals[2] << 16) | (vals[1] << 8) | vals[0]) / 12e6
+	# else:
+	return _calculate_float(vals)
+
+
+## ==================================================================
+## Base Class & Extending Subclass Definitions
 
 class _OPC_Base:
+	"""
+	Generic base class for an OPC-N2 sensor that implements all common methods 
+	inherited by subclasses OPC_Arduino, OPC_Pmod, & OPC_USB.
+	This class is meant to be abstract & thus is not intended to be instantiated on its own.
+	"""
 
 	def __init__(self, overlay=None):
 		log_msg_prefix = f"[{self.__class__.__name__}] "
@@ -105,104 +211,6 @@ class _OPC_Base:
 		print(f"{prefix} {msg}", end=end)
 
 
-	def _shorts2float(self, lo_byte_pair, hi_byte_pair):
-		""" 
-		Takes in 2 unsigned short (integers) and packs their collective
-		4 bytes into a floating point value, then returns that float.
-		"""
-		ba = bytearray(struct.pack("HH", lo_byte_pair, hi_byte_pair))
-		[f] = struct.unpack('f', ba)
-		return f
-
-
-	def _compare_arrays(self, resp, expected):
-		same = functools.reduce(lambda x,y: map(lambda p,q: p == q, resp, expected), True)
-		return same 
-
-
-	def _map_value(self, x, in_min, in_max, out_min, out_max):
-		return (x - in_min) * (out_max - out_min) // (in_max - in_min) + out_min
-
-
-	def _translate(self, value, leftMin, leftMax, rightMin, rightMax):
-		## Figure out how 'wide' each range is
-		leftSpan = leftMax - leftMin
-		rightSpan = rightMax - rightMin
-
-		## Convert the left range into a 0-1 range (float)
-		valueScaled = float(value - leftMin) / float(leftSpan)
-
-		## Convert the 0-1 range into a value in the right range.
-		return int(rightMin + (valueScaled * rightSpan))
-
-
-	def _16bit_unsigned(self, LSB, MSB):
-		"""Returns the combined LSB and MSB
-		:param LSB: Least Significant Byte
-		:param MSB: Most Significant Byte
-		:type LSB: byte
-		:type MSB: byte
-		:rtype: 16-bit unsigned int
-		"""
-		return (MSB << 8) | LSB
-
-
-	def _calculate_float(self, byte_array):
-		"""Returns an IEEE 754 float from an array of 4 bytes
-		:param byte_array: Expects an array of 4 bytes
-		:type byte_array: array
-		:rtype: float
-		"""
-		if len(byte_array) != 4:
-			return None
-		f = struct.unpack('f', struct.pack('4B', *byte_array))[0]
-		return round(f, FP_PRECISION)
-
-
-	def _calculate_mtof(self, mtof):
-		"""Returns the average amount of time that particles in a bin
-		took to cross the path of the laser [units -> microseconds]
-		:param mtof: mass time-of-flight
-		:type mtof: float
-		:rtype: float
-		"""
-		return round((mtof / 3.0), FP_PRECISION)
-
-
-	def _calculate_temp(self, vals):
-		"""Calculates the temperature in degrees celcius
-		:param vals: array of bytes
-		:type vals: array
-		:rtype: float
-		"""
-		if len(vals) < 4:
-			return None
-		t = ((vals[3] << 24) | (vals[2] << 16) | (vals[1] << 8) | vals[0]) / 10.0
-		return round(t, FP_PRECISION)
-
-
-	def _calculate_pressure(self, vals):
-		"""Calculates the pressure in pascals
-		:param vals: array of bytes
-		:type vals: array
-		:rtype: float
-		"""
-		if len(vals) < 4:
-			return None
-		return ((vals[3] << 24) | (vals[2] << 16) | (vals[1] << 8) | vals[0])
-
-
-	def _calculate_period(self, vals):
-		"""Calculate the sampling period in seconds"""
-		if len(vals) < 4:
-			return None
-		# if self.firmware['major'] < 16:
-		# 	return ((vals[3] << 24) | (vals[2] << 16) | (vals[1] << 8) | vals[0]) / 12e6
-		# else:
-		return self._calculate_float(vals)
-
-## - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
 	def on(self, force=False):
 		"""Turn ON the OPC (fan and laser)
 
@@ -225,8 +233,10 @@ class _OPC_Base:
 				rb0[0] += 256					## conversion from the transfer operation
 
 			attempts += 1
+
 			if hasattr(self, 'log_msg_prefix'):
 				self.log(self.log_msg_prefix, '', end='')
+
 			if rb0[0] == 0xF3 and rb1[0] == 0x03: 	## Ensure response values are as expected
 				self.state = ON 
 				print("SUCCESS -- device powered on.")
@@ -258,8 +268,10 @@ class _OPC_Base:
 				rb0[0] += 256					## conversion from the transfer operation
 
 			attempts += 1
+
 			if hasattr(self, 'log_msg_prefix'):
 				self.log(self.log_msg_prefix, '', end='')
+
 			if rb0[0] == 0xF3 and rb1[0] == 0x03: 	## Ensure response values are as expected
 				self.state = OFF 
 				print("SUCCESS -- device powered off.")
@@ -360,9 +372,9 @@ class _OPC_Base:
 			resp.append(rb[0])
 
 		## Make conversions to floats & store PM values
-		self._pm_dict['PM1']   = self._calculate_float(resp[:4])
-		self._pm_dict['PM2.5'] = self._calculate_float(resp[4:8])
-		self._pm_dict['PM10']  = self._calculate_float(resp[8:])
+		self._pm_dict['PM1']   = _calculate_float(resp[:4])
+		self._pm_dict['PM2.5'] = _calculate_float(resp[4:8])
+		self._pm_dict['PM10']  = _calculate_float(resp[8:])
 
 		time.sleep(0.1)
 		return self._pm_dict
@@ -412,37 +424,37 @@ class _OPC_Base:
 				rb[0] += 256
 			resp.append(rb[0])
 		
-		self._hist_dict['bin0']  = self._16bit_unsigned(resp[0],  resp[1])
-		self._hist_dict['bin1']  = self._16bit_unsigned(resp[2],  resp[3])
-		self._hist_dict['bin2']  = self._16bit_unsigned(resp[4],  resp[5])
-		self._hist_dict['bin3']  = self._16bit_unsigned(resp[6],  resp[7])
-		self._hist_dict['bin4']  = self._16bit_unsigned(resp[8],  resp[9])
-		self._hist_dict['bin5']  = self._16bit_unsigned(resp[10], resp[11])
-		self._hist_dict['bin6']  = self._16bit_unsigned(resp[12], resp[13])
-		self._hist_dict['bin7']  = self._16bit_unsigned(resp[14], resp[15])
-		self._hist_dict['bin8']  = self._16bit_unsigned(resp[16], resp[17])
-		self._hist_dict['bin9']  = self._16bit_unsigned(resp[18], resp[19])
-		self._hist_dict['bin10'] = self._16bit_unsigned(resp[20], resp[21])
-		self._hist_dict['bin11'] = self._16bit_unsigned(resp[22], resp[23])
-		self._hist_dict['bin12'] = self._16bit_unsigned(resp[24], resp[25])
-		self._hist_dict['bin13'] = self._16bit_unsigned(resp[26], resp[27])
-		self._hist_dict['bin14'] = self._16bit_unsigned(resp[28], resp[29])
-		self._hist_dict['bin15'] = self._16bit_unsigned(resp[30], resp[31])
+		self._hist_dict['bin0']  = _16bit_unsigned(resp[0],  resp[1])
+		self._hist_dict['bin1']  = _16bit_unsigned(resp[2],  resp[3])
+		self._hist_dict['bin2']  = _16bit_unsigned(resp[4],  resp[5])
+		self._hist_dict['bin3']  = _16bit_unsigned(resp[6],  resp[7])
+		self._hist_dict['bin4']  = _16bit_unsigned(resp[8],  resp[9])
+		self._hist_dict['bin5']  = _16bit_unsigned(resp[10], resp[11])
+		self._hist_dict['bin6']  = _16bit_unsigned(resp[12], resp[13])
+		self._hist_dict['bin7']  = _16bit_unsigned(resp[14], resp[15])
+		self._hist_dict['bin8']  = _16bit_unsigned(resp[16], resp[17])
+		self._hist_dict['bin9']  = _16bit_unsigned(resp[18], resp[19])
+		self._hist_dict['bin10'] = _16bit_unsigned(resp[20], resp[21])
+		self._hist_dict['bin11'] = _16bit_unsigned(resp[22], resp[23])
+		self._hist_dict['bin12'] = _16bit_unsigned(resp[24], resp[25])
+		self._hist_dict['bin13'] = _16bit_unsigned(resp[26], resp[27])
+		self._hist_dict['bin14'] = _16bit_unsigned(resp[28], resp[29])
+		self._hist_dict['bin15'] = _16bit_unsigned(resp[30], resp[31])
 
-		self._hist_dict['bin1_MToF'] = self._calculate_mtof(resp[32])
-		self._hist_dict['bin3_MToF'] = self._calculate_mtof(resp[33])
-		self._hist_dict['bin5_MToF'] = self._calculate_mtof(resp[34])
-		self._hist_dict['bin7_MToF'] = self._calculate_mtof(resp[35])
+		self._hist_dict['bin1_MToF'] = _calculate_mtof(resp[32])
+		self._hist_dict['bin3_MToF'] = _calculate_mtof(resp[33])
+		self._hist_dict['bin5_MToF'] = _calculate_mtof(resp[34])
+		self._hist_dict['bin7_MToF'] = _calculate_mtof(resp[35])
 
-		self._hist_dict['sfr'] = self._calculate_float(resp[36:40])		## Sample flow rate
+		self._hist_dict['sfr'] = _calculate_float(resp[36:40])		## Sample flow rate
 
 		## Alright, we don't know whether it is temp or pressure since it switches...
-		tmp = self._calculate_pressure(resp[40:44])
+		tmp = _calculate_pressure(resp[40:44])
 		if tmp > 98000:
 			self._hist_dict['temperature'] = None
 			self._hist_dict['pressure']    = tmp
 		else:
-			tmp = self._calculate_temp(resp[40:44])
+			tmp = _calculate_temp(resp[40:44])
 			if tmp < 500:
 				self._hist_dict['temperature'] = tmp
 				self._hist_dict['pressure']    = None
@@ -450,24 +462,24 @@ class _OPC_Base:
 				self._hist_dict['temperature'] = None
 				self._hist_dict['pressure']    = None
 
-		self._hist_dict['period'] = self._calculate_float(resp[44:48])		## Sampling period
+		self._hist_dict['period'] = _calculate_float(resp[44:48])		## Sampling period
 
-		self._hist_dict['checksum'] = self._16bit_unsigned(resp[48], resp[49])
+		self._hist_dict['checksum'] = _16bit_unsigned(resp[48], resp[49])
 
-		self._hist_dict['PM1']   = self._calculate_float(resp[50:54])
-		self._hist_dict['PM2.5'] = self._calculate_float(resp[54:58])
-		self._hist_dict['PM10']  = self._calculate_float(resp[58:])
+		self._hist_dict['PM1']   = _calculate_float(resp[50:54])
+		self._hist_dict['PM2.5'] = _calculate_float(resp[54:58])
+		self._hist_dict['PM10']  = _calculate_float(resp[58:])
 
 		## Calculate the sum of the histogram bins
-		histogram_sum = self._hist_dict['bin0'] + self._hist_dict['bin1'] + self._hist_dict['bin2']   + \
-				self._hist_dict['bin3'] + self._hist_dict['bin4'] + self._hist_dict['bin5'] + self._hist_dict['bin6']   + \
-				self._hist_dict['bin7'] + self._hist_dict['bin8'] + self._hist_dict['bin9'] + self._hist_dict['bin10']  + \
+		histogram_sum = self._hist_dict['bin0'] + self._hist_dict['bin1'] + self._hist_dict['bin2'] + \
+				self._hist_dict['bin3'] + self._hist_dict['bin4'] + self._hist_dict['bin5'] + self._hist_dict['bin6'] + \
+				self._hist_dict['bin7'] + self._hist_dict['bin8'] + self._hist_dict['bin9'] + self._hist_dict['bin10'] + \
 				self._hist_dict['bin11'] + self._hist_dict['bin12'] + self._hist_dict['bin13'] + self._hist_dict['bin14'] + \
 				self._hist_dict['bin15']
 
 		## Check that checksum and the least significant bits of the sum of histogram bins are equivilant
 		if (histogram_sum & 0x0000FFFF) != self._hist_dict['checksum']:
-			self.log(self.log_msg_prefix, "CHECKSUM ERROR: Histogram data transfer was incomplete")
+			self.log(self.log_msg_prefix is hasattr(self, 'log_msg_prefix') else '', "CHECKSUM ERROR: Histogram data transfer was incomplete")
 			return None
 
 		## If number_concentration flag is set, convert histogram values to number concentration
@@ -571,7 +583,7 @@ class _OPC_Base:
 		if not 0 <= power <= 255:
 			raise ValueError("The fan power should be a single byte (0-255).")
 
-		mapped_pval = [self._translate(power, 0, 255, -128, -1)]
+		mapped_pval = [_translate(power, 0, 255, -128, -1)]
 		rb0 = [0x00]
 		rb1 = [0x00]
 		rb2 = [0x00]
@@ -693,11 +705,17 @@ class OPC_Pmod(_OPC_Base):
 
 		time.sleep(2)
 		self.log(self.log_msg_prefix, f"Invocation of spi_open() returned:  {self.spi}")
-		self.log(self.log_msg_prefix, f"# of SPI devices found:  {self.get_num_devices()}")
+		# self.log(self.log_msg_prefix, f"# of SPI devices found:  {self.get_num_devices()}")
 
 		if wait:
 			self.wait()
+		else:
+			self.log(self.log_msg_prefix, "Initializing device ...")
+			time.sleep(1)
+			self.reset(force=True)
+			time.sleep(1)
 
+		self.log(self.log_msg_prefix, f"Device connected:  {self.ping()}")
 		self.log(self.log_msg_prefix, f"{self.read_info_string()}")
 		self.log(self.log_msg_prefix, f"Serial #:  {self.sn()}")
 		assert self.off(force=True)
@@ -750,11 +768,17 @@ class OPC_Arduino(_OPC_Base):
 
 		time.sleep(2)
 		self.log(self.log_msg_prefix, f"Invocation of spi_open() returned:  {self.spi}")
-		self.log(self.log_msg_prefix, f"# of SPI devices found:  {self.get_num_devices()}")
+		# self.log(self.log_msg_prefix, f"# of SPI devices found:  {self.get_num_devices()}")
 
 		if wait:
 			self.wait()
+		else:
+			self.log(self.log_msg_prefix, "Initializing device ...")
+			time.sleep(1)
+			self.reset(force=True)
+			time.sleep(1)
 
+		self.log(self.log_msg_prefix, f"Device connected:  {self.ping()}")
 		self.log(self.log_msg_prefix, f"{self.read_info_string()}")
 		self.log(self.log_msg_prefix, f"Serial #:  {self.sn()}")
 		assert self.off(force=True)
@@ -772,6 +796,7 @@ class OPC_USB(_OPC_Base):
 		import opc      ## Pypi package name:  py-opc
 		from opc.exceptions import FirmwareVersionError
 		from usbiss.spi import SPI
+
 		self.port = port
 		self.spi = SPI(self.port)
 
@@ -806,10 +831,18 @@ class OPC_USB(_OPC_Base):
 		# else:
 		if self._opcn2 is None:
 			raise ValueError(f"\n{self.log_msg_prefix} ERROR: INIT FAILED AFTER {spi_err_cnt+1} ATTEMPTS (SPI bus error for {self.port})\n")
-		
+		else:
+			print('\n')
+
 		if wait:
 			self.wait()
+		else:
+			self.log(self.log_msg_prefix, "Initializing device ...")
+			time.sleep(1)
+			self.reset()
+			time.sleep(1)
 
+		self.log(self.log_msg_prefix, f"Device connected:  {self.ping()}")
 		self.log(self.log_msg_prefix, f"{self.read_info_string()}")
 		self.log(self.log_msg_prefix, f"Serial #:  {self.sn()}")
 		self.log(self.log_msg_prefix, f"Port:  {self.port}")
