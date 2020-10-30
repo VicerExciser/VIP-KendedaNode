@@ -219,9 +219,9 @@ class K33_UART():
 	
 
 	def close(self):
-		if self.using_usb and self.ser.is_open:
+		if not self.using_usb:
 			self.ser.close()
-		else:
+		elif self.ser.is_open:
 			self.ser.close()
 
 
