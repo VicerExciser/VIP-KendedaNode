@@ -16,7 +16,7 @@ class AnalogMultiplexer:
 
 	def __init__(self, en, s0, s1, s2, s3, sig):
 		## The 'SIG' or 'Common' pin outputs the analog value of a selected input channel
-		assert (hasattr(sig, 'read') or isinstance(sig, Arduino_Analog))
+		assert (hasattr(sig, 'read'))  # or isinstance(sig, Arduino_Analog))
 		self.sig = sig 
 
 		## The control/select pins 'S0-3' are pulled HIGH or LOW for selecting 1 of the 16 input channels
@@ -88,13 +88,41 @@ class AnalogMultiplexer:
 		self._select_channel(chan)
 		voltages = self.sig.read()
 		self.disable()
-		return voltages
-		# return voltages[0]
 
+		if isinstance(self.sig, Arduino_Analog):
+			return voltages[0]
+		return voltages
+
+
+arduino_pin_map = {
+	## Digital pins
+	'D0': 0,
+	'D1': 1,
+	'D2': 2,
+	'D3': 3,
+	'D4': 4,
+	'D5': 5,
+	'D6': 6,
+	'D7': 7,
+	'D8': 8,
+	'D9': 9,
+	'D10': 10,
+	'D11': 11,
+	'D12': 12,
+	'D13': 13,
+	## Analog pins
+	'A0': 14,
+	'A1': 15,
+	'A2': 16,
+	'A3': 17,
+	'A4': 18,
+	'A5': 19
+}
 
 universal_sig_pin = 0   ## 'A0'
 universal_sig_pin_group = [0, 1]   ## ARDUINO_GROVE_A1
 universal_sig_pin_index = 0
+
 control_pin_map = {
 	## Multiplexer select pin name --> PYNQ Arduino IO pin number
 	'EN': 3,
@@ -139,25 +167,27 @@ def main():
 	s1_pin = Arduino_IO(mb_info, control_pin_map['S1'], 'out')
 	s2_pin = Arduino_IO(mb_info, control_pin_map['S2'], 'out')
 	s3_pin = Arduino_IO(mb_info, control_pin_map['S3'], 'out')
-	sig_pin = Arduino_Analog(mb_info, universal_sig_pin_group)   # [0, 1])  # ARDUINO_GROVE_A1)
+
+	# sig_pin = Arduino_Analog(mb_info, universal_sig_pin_group)   # [0, 1])  # ARDUINO_GROVE_A1)
+	sig_pin = Arduino_IO(mb_info, arduino_pin_map['A0'], 'in')
 
 	multiplexer = AnalogMultiplexer(en_pin, s0_pin, s1_pin, s2_pin, s3_pin, sig_pin)
 
 	while True:
 		try:
-			co_we = multiplexer.read_channel(0)[universal_sig_pin_index]
-			co_ae = multiplexer.read_channel(1)[universal_sig_pin_index]
+			co_we = multiplexer.read_channel(0)   # [universal_sig_pin_index]
+			co_ae = multiplexer.read_channel(1)   # [universal_sig_pin_index]
 			print(f'\nCO-B4:\n  WE Voltage = {co_we} V\n  AE Voltage = {co_ae} V')
 
-			no2_we = multiplexer.read_channel(2)[universal_sig_pin_index]
-			no2_ae = multiplexer.read_channel(3)[universal_sig_pin_index]
+			no2_we = multiplexer.read_channel(2)   # [universal_sig_pin_index]
+			no2_ae = multiplexer.read_channel(3)   # [universal_sig_pin_index]
 			print(f'\nNO2-B43F:\n  WE Voltage = {no2_we} V\n  AE Voltage = {no2_ae} V')
 
-			ox_we = multiplexer.read_channel(4)[universal_sig_pin_index]
-			ox_ae = multiplexer.read_channel(5)[universal_sig_pin_index]
+			ox_we = multiplexer.read_channel(4)   # [universal_sig_pin_index]
+			ox_ae = multiplexer.read_channel(5)   # [universal_sig_pin_index]
 			print(f'\nOX-B431:\n  WE Voltage = {ox_we} V\n  AE Voltage = {ox_ae} V')
 
-			mq7_rs = multiplexer.read_channel(6)[universal_sig_pin_index]
+			mq7_rs = multiplexer.read_channel(6)   # [universal_sig_pin_index]
 			mq7_ro = 10.0
 			mq7_co_ppm = round((1538.46 * (mq7_rs / mq7_ro)) ** (-1.709), 4)
 			print(f'\nMQ-7:\n  Rs Voltage = {mq7_rs} V\n  Approx. CO = {mq7_co_ppm} ppm\n')
