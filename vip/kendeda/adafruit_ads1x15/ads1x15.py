@@ -220,7 +220,7 @@ class ADS1x15:
 		self.i2c_device.write(self.address, self.buf, num_bytes)
 		
 
-	def _read_register(self, reg, fast=False):
+	def _read_register(self, reg, fast=True):  #False):
 		"""Read 16 bit register value. If fast is True, the pointer register
 		is not updated.
 
