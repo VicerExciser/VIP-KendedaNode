@@ -31,7 +31,8 @@ Adapted from the CircuitPython driver for ADS1015 ADCs.
 import struct
 
 # pylint: disable=unused-import
-from .ads1x15 import ADS1x15, Mode
+# from .ads1x15 import ADS1x15, Mode
+from ads1x15 import ADS1x15, Mode
 
 # Data sample rates
 _ADS1015_CONFIG_DR = {

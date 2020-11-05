@@ -18,6 +18,6 @@ try:
 		print("{:>5}\t{:>5.3f}".format(chan.value, chan.voltage))
 		time.sleep(0.5)
 except KeyboardInterrupt:
-	break 
+	pass 
 
 print("\nGoodbye.")
