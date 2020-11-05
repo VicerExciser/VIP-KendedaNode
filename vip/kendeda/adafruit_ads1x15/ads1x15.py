@@ -80,10 +80,15 @@ class ADS1x15:
 		self.mode = mode
 		self.address = address
 
+		#### (Original code from https://github.com/adafruit/Adafruit_CircuitPython_ADS1x15/blob/master/adafruit_ads1x15/ads1x15.py#L82):
 		# self.i2c_device = I2CDevice(i2c, address)
+		####
+
+		#### (My attempt at replacing the typically expected `busio.I2C` object with a PYNQ I2C object (created thru MicroblazeLibrary elsewhere)):
 		## Ensure the passed i2c device was created by pynq.lib.pynqmicroblaze.rpc
 		assert (i2c is not None) and (i2c.__class__.__name__ == 'i2c') and (i2c.val == 0)
 		self.i2c_device = i2c
+		####
 
 	@property
 	def data_rate(self):
@@ -192,7 +197,6 @@ class ADS1x15:
 		# OS = 1: Device is not currently performing a conversion
 		return self._read_register(_ADS1X15_POINTER_CONFIG) & 0x8000
 
-
 	def get_last_result(self, fast=False):
 		"""Read the last conversion result when in continuous conversion mode.
 		Will return a signed integer value. If fast is True, the register
@@ -200,6 +204,7 @@ class ADS1x15:
 		and increases possible read rate.
 		"""
 		return self._read_register(_ADS1X15_POINTER_CONVERSION, fast)
+
 
 
 	def _write_register(self, reg, value):
@@ -213,28 +218,37 @@ class ADS1x15:
 		self.buf[1] = (value >> 8) & 0xFF
 		self.buf[2] = value & 0xFF
 		
+		#### (Original code from https://github.com/adafruit/Adafruit_CircuitPython_ADS1x15/blob/master/adafruit_ads1x15/ads1x15.py#L204):
 		# with self.i2c_device as i2c:
 		#     i2c.write(self.buf)
-		
+		####
+
+		#### (My attempt at replacing the above `write` operation to use PYNQ's I2C API):
 		num_bytes = 2
 		self.i2c_device.write(self.address, self.buf, num_bytes)
+		####
 		
 
-	def _read_register(self, reg, fast=True):  #False):
+
+	def _read_register(self, reg, fast=False):
 		"""Read 16 bit register value. If fast is True, the pointer register
 		is not updated.
 
 		For replacing the original invocations of I2C_Device.readinto() and 
 		I2C_Device.write_then_readinto(), see their implementations in the sources:
 		https://circuitpython.readthedocs.io/projects/busdevice/en/latest/_modules/adafruit_bus_device/i2c_device.html
-		https://circuitpython.readthedocs.io/en/latest/shared-bindings/busio/#busio.I2C.writeto_then_readfrom 
+		https://circuitpython.readthedocs.io/en/latest/shared-bindings/busio/#busio.I2C.writeto_then_readfrom
+		 https://github.com/adafruit/Adafruit_Blinka/blob/master/src/busio.py#L99 
 		"""
+		#### (Original code from https://github.com/adafruit/Adafruit_CircuitPython_ADS1x15/blob/master/adafruit_ads1x15/ads1x15.py#L211):
 		# with self.i2c_device as i2c:
 		#     if fast:
 		#         i2c.readinto(self.buf, end=2)
 		#     else:
 		#         i2c.write_then_readinto(bytearray([reg]), self.buf, in_end=2)
+		####
 		
+		#### (My attempt at replacing the above `readinto` & `write_then_readinto` operations to use PYNQ's I2C API):
 		num_bytes = 2
 		if fast:
 			self.i2c_device.read(self.address, self.buf, num_bytes)
@@ -242,5 +256,6 @@ class ADS1x15:
 			out_buffer = bytearray([reg])
 			self.i2c_device.write(self.address, out_buffer, len(out_buffer))
 			self.i2c_device.read(self.address, self.buf, num_bytes)
+		####
 
 		return self.buf[0] << 8 | self.buf[1]
