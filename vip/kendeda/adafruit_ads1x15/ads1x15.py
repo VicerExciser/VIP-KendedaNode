@@ -224,8 +224,7 @@ class ADS1x15:
 		####
 
 		#### (My attempt at replacing the above `write` operation to use PYNQ's I2C API):
-		num_bytes = 2
-		self.i2c_device.write(self.address, self.buf, num_bytes)
+		self.i2c_device.write(self.address, self.buf, len(self.buf))
 		####
 		
 

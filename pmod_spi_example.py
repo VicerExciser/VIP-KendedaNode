@@ -1,46 +1,43 @@
-###################################
-######  Arduino SPI Example  ######
-###################################
+################################
+######  Pmod SPI Example  ######
+################################
 import time
 from pynq import Overlay
 from pynq.lib import MicroblazeLibrary
 
-## Arduino Shield SPI Pin Definitions
-ARDUINO_SCLK_PIN = 13
-ARDUINO_MISO_PIN = 12
-ARDUINO_MOSI_PIN = 11
-ARDUINO_SS_PIN   = 10
+## Pmod SPI Pin Definitions
+PMOD_SCLK_PIN = 1
+PMOD_MISO_PIN = 0
+PMOD_MOSI_PIN = 4
+PMOD_SS_PIN   = 5
 
-## For SPI mode 1 on ARM-based controllers: Clock polarity = 0, Clock phase = 1 
+## For SPI mode 0 on ARM-based controllers: Clock polarity = 0, Clock phase = 0
 ## Be sure to check the datasheet for your specific device to find which SPI mode to use
 ## (source: https://en.wikipedia.org/wiki/Serial_Peripheral_Interface#Mode_numbers) 
-SPI_CLOCK_PHASE    = 1
+SPI_CLOCK_PHASE    = 0
 SPI_CLOCK_POLARITY = 0
 
 ## Obtain a reference to the Base Overlay (bitstream) loaded into the PL
 overlay = Overlay('base.bit')
 
-## Using the Arduino IO Processor for this example
-iop = overlay.iop_arduino
+## Using the PmodB IO Processor for this example
+iop = overlay.iop_pmodb 
 
 ## Instantiate the Python object that wraps the library functions defined in 'spi.h' for the IOP
 lib = MicroblazeLibrary(iop, ['spi'])
 
-## Open a SPI device object for the 'SPI1' controller (which uses IO pins 10-13)
-spi_device = lib.spi_open(ARDUINO_SCLK_PIN, ARDUINO_MISO_PIN, ARDUINO_MOSI_PIN, ARDUINO_SS_PIN)
-
-## ^ Alternatively, the 'SPI0' controller uses the dedicated 6-pin SPI header & can be opened as:
-# spi_device = lib.spi_open_device(0)
+## Open a SPI device object capable of data transfer operations 
+spi_device = lib.spi_open(PMOD_SCLK_PIN, PMOD_MISO_PIN, PMOD_MOSI_PIN, PMOD_SS_PIN)
 
 ## The SPI master must be configured with a specified clock phase & polarity, based on the 
-##   slave device's SPI mode (this example uses SPI mode 1)
+##   slave device's SPI mode (this example uses SPI mode 0)
 spi_device.configure(SPI_CLOCK_PHASE, SPI_CLOCK_POLARITY)
 
 ## The following sequence demonstrates transferring bytes to & from the SPI slave:
 ##   1. Send an iterable list of command byte(s) to initiate a sensor read, then wait 10 ms
 ##      NOTE: If just writing data, the 'read_data' argument must be an empty buffer (i.e., [0x00])
 ##            and cannot be None; the same applies for the 'write_data' arg when only reading data
-write_data = [0x32]
+write_data = [0x42]
 spi_device.transfer(write_data, [0x00], len(write_data))
 time.sleep(10e-3)
 
