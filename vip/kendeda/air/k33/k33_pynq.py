@@ -179,11 +179,11 @@ class K33_UART_Arduino(_K33_UART_Base):
 
 ##______________________________________________________________________________________________________
 
-class K33_UART_Pmod(_K33_UART_Base):
-	"""
-	Class for a K33 sensor connected to either the PmodA or PmodB port of
-	the PYNQ to be read via UART. The RXD and TXD pins are to be set by users.
-	"""
+# class K33_UART_Pmod(_K33_UART_Base):
+# 	"""
+# 	Class for a K33 sensor connected to either the PmodA or PmodB port of
+# 	the PYNQ to be read via UART. The RXD and TXD pins are to be set by users.
+# 	"""
 
 
 ##______________________________________________________________________________________________________

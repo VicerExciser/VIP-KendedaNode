@@ -1,6 +1,9 @@
 import time
-import isb_pynq as isb
-import mq7_pynq as mq7 
+try:
+	import isb_pynq as isb
+	import mq7_pynq as mq7 
+except (ImportError, ModuleNotFoundError):
+
 
 MEASUREMENT_INTERVAL = 5     ## Seconds
 
