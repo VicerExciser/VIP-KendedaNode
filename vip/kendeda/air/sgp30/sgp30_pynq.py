@@ -57,7 +57,7 @@ _SGP30_CRC8_INIT = const(0xFF)
 _SGP30_WORD_LEN = const(2)
 
 
-class Adafruit_SGP30:
+class Pynq_SGP30:
     """
     A driver for the SGP30 gas sensor.
     """

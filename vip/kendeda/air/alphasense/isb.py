@@ -39,8 +39,6 @@ class ISB(object):
 	def ae_mv(self):
 		return float(self.aux_voltage * 1000.0)
 
-	# @classmethod
-	# def _get_nT(cls, xs, ys):
 	def _get_nT(self, xs, ys):
 		y = 1.0
 		if util.USE_TEMP_COEFFICIENT and self.get_temp is not None: 	# and bme is not None:
@@ -49,7 +47,6 @@ class ISB(object):
 			y = float(m*x + b)
 		return y 
 
-	
 	def get_ppm(self):
 		return round(self.ppm, 4) 
 
@@ -93,7 +90,6 @@ class CO(ISB):
 	## For nT, the temperature dependence coefficient (uses best-fit line)
 	@property
 	def nT(self):
-		# self._nT = ISB._get_nT(CO._xs, CO._ys)
 		self._nT = self._get_nT(CO._xs, CO._ys)
 		return self._nT
 	

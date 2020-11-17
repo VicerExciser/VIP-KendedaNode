@@ -41,12 +41,12 @@ _ADS1X15_CONFIG_OS_SINGLE = (0x8000)
 _ADS1X15_CONFIG_MUX_OFFSET = (12)
 _ADS1X15_CONFIG_COMP_QUE_DISABLE = (0x0003)
 _ADS1X15_CONFIG_GAIN = {
-	2 / 3: 0x0000,
-	1: 0x0200,
-	2: 0x0400,
-	4: 0x0600,
-	8: 0x0800,
-	16: 0x0A00,
+	2 / 3: 0x0000,	## 2/3 = ±6.144 Volts
+	1: 0x0200, 		## 1 = ±4.096 Volts
+	2: 0x0400, 		## 2 = ±2.048 Volts
+	4: 0x0600, 		## 4 = ±1.024 Volts
+	8: 0x0800, 		## 8 = ±0.51 Volts
+	16: 0x0A00, 	## 16 = ±0.256 Volts
 }
 
 
