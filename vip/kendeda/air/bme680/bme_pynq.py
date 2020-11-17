@@ -1,3 +1,13 @@
+"""
+Vin - 3v3
+3vo - DNC
+GND - GND
+SCK - SCK [I2C] | SCLK [SPI]
+SDO -     [I2C] | MISO [SPI]
+SDI - SDA [I2C] | MOSI [SPI]
+CS  -     [I2C] | CS   [SPI] 
+"""
+
 # import adafruit_bme680
 from pynq.pl import PL
 from pynq.overlays.base import BaseOverlay
