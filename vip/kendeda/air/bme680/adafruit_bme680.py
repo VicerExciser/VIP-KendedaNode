@@ -1,133 +1,3 @@
-"""
-Vin - 3v3
-3vo - DNC
-GND - GND
-SCK - SCK [I2C] | SCLK [SPI]
-SDO -     [I2C] | MISO [SPI]
-SDI - SDA [I2C] | MOSI [SPI]
-CS  -     [I2C] | CS   [SPI] 
-"""
-
-
-import math
-
-RV = 461.5  ## specific gas constant for water vapor
-
-class BME680():
-	""" Wrapper class for an Adafruit BME680 sensor breakout.
-	"""
-
-	I2C_ADDR = 0x77
-
-	def __init__(self, bus, use_i2c=True, stabilize_humidity=False):
-		""" Can use I2C or SPI to communicate with a Raspberry Pi.
-
-		Note that the internally created Adafruit_BME680 object requires that 
-		its `sea_level_pressure` attribute be set after instantiation to match
-		the sensor location's barometric pressure (hPa) at sea level.
-		This hPa value for Atlanta can be found here: 
-			https://w1.weather.gov/data/obhistory/KATL.html
-			[ Subnote: 1 millibar (mb) == 1 hectoPascal (hPa) ]
-
-		Args:
-			bus (busio.I2C or busio.SPI): Either an I2C connection if the 
-				`use_i2c` flag is set to True, else an SPI connection.
-			use_i2c: Boolean, defaults True for an I2C connection between the 
-				board and the BME680 sensor breakout. If False and SPI is 
-				preferred, the CS0 chip select pin is assumed, as well as a
-				default baudrate of 100000.
-			stabilize_humidity: Boolean, set to True to have the sensor 
-				continuously poll its relative humidity upon initialization
-				until the readings stabilize/converge
-
-		Raises:
-			ValueError: If no connected BME680 sensor is found
-		"""
-		if use_i2c:
-			self.bme = Pynq_BME680_I2C(bus)
-		else:
-			self.bme = Pynq_BME680_SPI(spi, cs=0)
-
-		## Default: A rough average of previous month's recorded air 
-		## pressure measurements in Atlanta (as of March, 2020)
-		self.bme.sea_level_pressure = 1029.9
-
-		if stabilize_humidity:
-			self._stabilize()
-
-	def _stabilize(self):
-		from time import sleep 
-		print("[BME680] Stabilizing humidity ...")
-		prev = 100.1
-		hum = self.get_humidity()
-		while hum < prev:
-			prev = hum 
-			sleep(0.5)
-			hum = self.get_humidity()
-		print("[BME680] Humidity stabilized at {:4.2f}%".format(hum))
-
-	def get_temperature(self):
-		""" Returns the compensated temperature in degrees celsius.
-		"""
-		return self.bme.temperature 	## Units: °C
-
-	def get_pressure(self):
-		""" Returns the barometric pressure in hectoPascals.
-		"""
-		return self.bme.pressure 		## Units: hPa
-
-	def get_humidity(self):
-		""" Returns the current relative humidity in RH %.
-		"""
-		return self.bme.humidity 		## Units: %
-
-	def get_absolute_humidity(self):
-		""" Returns the current absolute humidity (in grams
-		per cubic meter) based on the current relative 
-		humidity, temperature, and barometric pressure.
-		Source: https://planetcalc.com/2167/
-		"""
-		rh = self.bme.humidity
-		t = self.bme.temperature
-		p = self.bme.pressure
-		eW = self._saturation_vapor_pressure(p, t)
-		e = eW * (rh / 100.0)
-		ah = ((e / (t * RV)) * 10.0) * 1000 ## * 1000 to convert kg/m3 to g/m3
-		"""
-		print('-'*40)
-		print(f"Temp: {t:5.3f} °C\nPressure: {p:6.3f} hPa\nSat. Press: {eW:5.3f} hPa")
-		print(f"RH: {rh:5.3f} %\nAH: {ah:4.3f} g/m3\n\n")
-		"""
-		return self.bme.abs_humidity 		## Units: g/m3
-
-	def _saturation_vapor_pressure(self, p, t):
-		""" Source: https://planetcalc.com/2161/ """
-		fp = 1.0016 + ((3.15 * 10**(-6)) * p) - (0.074 * (p**(-1)))
-		ewt = 6.112 * (math.e ** ((17.62 * t) / (243.12 + t)))
-		eW = fp * ewt
-		return eW
-	
-	def get_altitude(self):
-		""" Returns the altitude based on current pressure vs. the sea level 
-		pressure (sea_level_pressure) which must be configured ahead of time 
-		(handled here by the class constructor).
-		"""
-		return self.bme.altitude 		## Units: meters
-
-	def get_voc(self):
-		""" Returns the Volatile Organic Compounds concentration measurement.
-
-		The gas resistance in ohms for the sensor reading is proportional to 
-		the amount of VOC particles detected in the air.
-		"""
-		return self.bme.gas 			## Units: ohms	
-
-	def update_sea_level_pressure(self, val):
-		if val > 0:
-			self.bme.sea_level_pressure = val
-
-## ============================================================================
-
 # The MIT License (MIT)
 #
 # Copyright (c) 2017 ladyada for Adafruit Industries
@@ -178,6 +48,8 @@ Implementation Notes
 
 
 import time
+import math
+from micropython import const
 
 try:
     import struct
@@ -190,25 +62,25 @@ __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_BME680.git"
 
 #    I2C ADDRESS/BITS/SETTINGS
 #    -----------------------------------------------------------------------
-_BME680_CHIPID = 0x61
+_BME680_CHIPID = const(0x61)
 
-_BME680_REG_CHIPID = 0xD0
-_BME680_BME680_COEFF_ADDR1 = 0x89
-_BME680_BME680_COEFF_ADDR2 = 0xE1
-_BME680_BME680_RES_HEAT_0 = 0x5A
-_BME680_BME680_GAS_WAIT_0 = 0x64
+_BME680_REG_CHIPID = const(0xD0)
+_BME680_BME680_COEFF_ADDR1 = const(0x89)
+_BME680_BME680_COEFF_ADDR2 = const(0xE1)
+_BME680_BME680_RES_HEAT_0 = const(0x5A)
+_BME680_BME680_GAS_WAIT_0 = const(0x64)
 
-_BME680_REG_SOFTRESET = 0xE0
-_BME680_REG_CTRL_GAS = 0x71
-_BME680_REG_CTRL_HUM = 0x72
-_BME680_REG_STATUS = 0x73
-_BME680_REG_CTRL_MEAS = 0x74
-_BME680_REG_CONFIG = 0x75
+_BME680_REG_SOFTRESET = const(0xE0)
+_BME680_REG_CTRL_GAS = const(0x71)
+_BME680_REG_CTRL_HUM = const(0x72)
+_BME680_REG_STATUS = const(0x73)
+_BME680_REG_CTRL_MEAS = const(0x74)
+_BME680_REG_CONFIG = const(0x75)
 
-_BME680_REG_MEAS_STATUS = 0x1D
-_BME680_REG_PDATA = 0x1F
-_BME680_REG_TDATA = 0x22
-_BME680_REG_HDATA = 0x25
+_BME680_REG_MEAS_STATUS = const(0x1D)
+_BME680_REG_PDATA = const(0x1F)
+_BME680_REG_TDATA = const(0x22)
+_BME680_REG_HDATA = const(0x25)
 
 _BME680_SAMPLERATES = (0, 1, 2, 4, 8, 16)
 _BME680_FILTERSIZES = (0, 1, 3, 7, 15, 31, 63, 127)
@@ -264,7 +136,7 @@ def _read24(arr):
     return ret
 
 
-class Pynq_BME680:
+class Adafruit_BME680:
     """Driver from BME680 air quality sensor
 
        :param int refresh_rate: Maximum number of readings per second. Faster property reads
@@ -522,7 +394,7 @@ class Pynq_BME680:
 
 
 
-class Pynq_BME680_I2C(Pynq_BME680):
+class Adafruit_BME680_I2C(Adafruit_BME680):
     """Driver for I2C connected BME680.
 
         :param int address: I2C device address
@@ -531,54 +403,39 @@ class Pynq_BME680_I2C(Pynq_BME680):
           will be from the previous reading."""
 
     def __init__(self, i2c, address=0x77, debug=False, *, refresh_rate=10):
-        #### (Original code from Adafruit):
-		# """Initialize the I2C device at the 'address' given"""
-        # from adafruit_bus_device import (  # pylint: disable=import-outside-toplevel
-        #    i2c_device,
-        # )
+        """Initialize the I2C device at the 'address' given"""
+        from adafruit_bus_device import (  # pylint: disable=import-outside-toplevel
+            i2c_device,
+        )
 
-        # self._i2c = i2c_device.I2CDevice(i2c, address)
-		####
-
-		#### (My attempt at replacing the typically expected `busio.I2C` object with a PYNQ I2C object (created thru MicroblazeLibrary elsewhere)):
-		## Ensure the passed i2c device was created by pynq.lib.pynqmicroblaze.rpc
-		assert (i2c is not None) and (i2c.__class__.__name__ == 'i2c') and (i2c.val == 0)
-		self._i2c = i2c
-		####
-
+        self._i2c = i2c_device.I2CDevice(i2c, address)
         self._debug = debug
         super().__init__(refresh_rate=refresh_rate)
 
     def _read(self, register, length):
         """Returns an array of 'length' bytes from the 'register'"""
-		####
-        # with self._i2c as i2c:
-        #     i2c.write(bytes([register & 0xFF]))
-        #     result = bytearray(length)
-        #     i2c.readinto(result)
-        #     if self._debug:
-        #         print("\t$%02X => %s" % (register, [hex(i) for i in result]))
-        #     return result
-		####
-		## TODO
+        with self._i2c as i2c:
+            i2c.write(bytes([register & 0xFF]))
+            result = bytearray(length)
+            i2c.readinto(result)
+            if self._debug:
+                print("\t$%02X => %s" % (register, [hex(i) for i in result]))
+            return result
 
     def _write(self, register, values):
         """Writes an array of 'length' bytes to the 'register'"""
-		####
-        # with self._i2c as i2c:
-        #     buffer = bytearray(2 * len(values))
-        #     for i, value in enumerate(values):
-        #         buffer[2 * i] = register + i
-        #         buffer[2 * i + 1] = value
-        #     i2c.write(buffer)
-        #     if self._debug:
-        #         print("\t$%02X <= %s" % (values[0], [hex(i) for i in values[1:]]))
-		####
-		## TODO
+        with self._i2c as i2c:
+            buffer = bytearray(2 * len(values))
+            for i, value in enumerate(values):
+                buffer[2 * i] = register + i
+                buffer[2 * i + 1] = value
+            i2c.write(buffer)
+            if self._debug:
+                print("\t$%02X <= %s" % (values[0], [hex(i) for i in values[1:]]))
 
 
 
-class Pynq_BME680_SPI(Pynq_BME680):
+class Adafruit_BME680_SPI(Adafruit_BME680):
     """Driver for SPI connected BME680.
 
         :param busio.SPI spi: SPI device
@@ -590,15 +447,11 @@ class Pynq_BME680_SPI(Pynq_BME680):
       """
 
     def __init__(self, spi, cs, baudrate=100000, debug=False, *, refresh_rate=10):
-		####
-        # from adafruit_bus_device import (  # pylint: disable=import-outside-toplevel
-        #     spi_device,
-        # )
+        from adafruit_bus_device import (  # pylint: disable=import-outside-toplevel
+            spi_device,
+        )
 
-        # self._spi = spi_device.SPIDevice(spi, cs, baudrate=baudrate)
-		####
-		## TODO 
-
+        self._spi = spi_device.SPIDevice(spi, cs, baudrate=baudrate)
         self._debug = debug
         super().__init__(refresh_rate=refresh_rate)
 
@@ -609,17 +462,13 @@ class Pynq_BME680_SPI(Pynq_BME680):
             self._set_spi_mem_page(register)
 
         register = (register | 0x80) & 0xFF  # Read single, bit 7 high.
-
-		####
-        # with self._spi as spi:
-        #     spi.write(bytearray([register]))  # pylint: disable=no-member
-        #     result = bytearray(length)
-        #     spi.readinto(result)  # pylint: disable=no-member
-        #     if self._debug:
-        #         print("\t$%02X => %s" % (register, [hex(i) for i in result]))
-        #     return result
-		####
-		## TODO
+        with self._spi as spi:
+            spi.write(bytearray([register]))  # pylint: disable=no-member
+            result = bytearray(length)
+            spi.readinto(result)  # pylint: disable=no-member
+            if self._debug:
+                print("\t$%02X => %s" % (register, [hex(i) for i in result]))
+            return result
 
     def _write(self, register, values):
         if register != _BME680_REG_STATUS:
@@ -627,18 +476,14 @@ class Pynq_BME680_SPI(Pynq_BME680):
             # For all other registers, we must set the correct memory page
             self._set_spi_mem_page(register)
         register &= 0x7F  # Write, bit 7 low.
-
-		####
-        # with self._spi as spi:
-        #     buffer = bytearray(2 * len(values))
-        #     for i, value in enumerate(values):
-        #         buffer[2 * i] = register + i
-        #         buffer[2 * i + 1] = value & 0xFF
-        #     spi.write(buffer)  # pylint: disable=no-member
-        #     if self._debug:
-        #         print("\t$%02X <= %s" % (values[0], [hex(i) for i in values[1:]]))
-		####
-		## TODO
+        with self._spi as spi:
+            buffer = bytearray(2 * len(values))
+            for i, value in enumerate(values):
+                buffer[2 * i] = register + i
+                buffer[2 * i + 1] = value & 0xFF
+            spi.write(buffer)  # pylint: disable=no-member
+            if self._debug:
+                print("\t$%02X <= %s" % (values[0], [hex(i) for i in values[1:]]))
 
     def _set_spi_mem_page(self, register):
         spi_mem_page = 0x00
