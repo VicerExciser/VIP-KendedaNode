@@ -1,9 +1,11 @@
-from pynq import Overlay
+from pynq import Overlay, PL
 from pynq.lib import MicroblazeLibrary
 
-from .alphasense import isb
-from .bme import bme_pynq
-from .pynq_ads1x15 import ads1015, ads1115, analog_in
+import air_sensors.alphasense.isb as isb
+import air_sensors.bme680.bme_pynq as bme_pynq
+from pynq_ads1x15.ads1015 import ADS1015
+# from pynq_ads1x15.ads1115 import ADS1115
+from pynq_ads1x15.analog_in import AnalogIn
 
 
 ## Default Arduino header pin assignments for SPI connection
@@ -17,7 +19,7 @@ ARDUINO_UART_RXD = 0
 ARDUINO_UART_TXD = 1
 
 
-overlay = Overlay('base.bit')
+overlay = Overlay('base.bit', download=(PL.bitfile_name.split('/')[-1] != 'base.bit'))
 iop = overlay.iop_arduino
 lib = MicroblazeLibrary(iop, ['i2c', 'spi', 'uart', 'gpio'])
 
@@ -27,8 +29,8 @@ uart = lib.uart_open(ARDUINO_UART_TXD, ARDUINO_UART_RXD)
 
 bme_sensor = bme_pynq.BME680(spi, use_i2c=False, stabilize_humidity=True)
 
-adc = ads1015.ADS1015(i2c, gain=1)
-adc_channels = [analog_in.AnalogIn(adc, pin) for pin in range(4)]
+adc = ADS1015(i2c, gain=1)
+adc_channels = [AnalogIn(adc, pin) for pin in range(4)]
 
 co_we_pin = ads1015.P0  ## Orange wire (OP1) <--> ADC Pin 0
 co_ae_pin = ads1015.P1  ## Yellow wire (OP2) <--> ADC Pin 1
