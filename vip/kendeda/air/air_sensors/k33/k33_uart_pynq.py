@@ -5,8 +5,8 @@ import signal
 import termios
 from datetime import datetime as dt
 
-from pynq import Overlay
-from pynq.lib import MicroblazeLibrary
+# from pynq import Overlay
+# from pynq.lib import MicroblazeLibrary
 
 ## TODO: Create custom Exceptions for errors, especially for NO_RESP failures 
 ## so that air_node.py can remove the dead K33 from the sensor loop (battery pack likely died)
